@@ -34,6 +34,6 @@ script:
  - cabal test
 
 after_script:
-  - cabal sandbox init
-  - cabal install hpc-coveralls
+  - cabal install --force-reinstalls hpc-coveralls
+  - find dist/
   - hpc-coveralls network-anonymous-i2p-test
