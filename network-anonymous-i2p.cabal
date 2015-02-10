@@ -15,10 +15,6 @@ data-files: LICENSE, README.md
 cabal-version: >= 1.16
 tested-with: GHC == 7.4, GHC == 7.6, GHC == 7.8
 
-flag threaded
-  description: Build with threaded runtime
-  default:     True
-
 flag eventlog
   description: Enable the eventlog, useful for profiling
   default:     False
@@ -30,9 +26,6 @@ library
 
   if impl(ghc >= 6.13.0)
     ghc-options: -rtsopts
-
-  if flag(threaded)
-    ghc-options: -threaded
 
   if flag(eventlog)
     ghc-options: -eventlog
