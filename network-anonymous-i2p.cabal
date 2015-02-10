@@ -1,0 +1,78 @@
+name: network-anonymous-i2p
+category: Network
+version: 0.0.1
+description: Haskell API for I2P anonymous networking
+
+license: MIT
+license-file: LICENSE
+copyright: (c) 2014 Leon Mergen
+author: Leon Mergen
+maintainer: leon@solatis.com
+stability: experimental
+synopsis: Haskell API for I2P anonymous networking
+build-type: Simple
+data-files: LICENSE, README.md
+cabal-version: >= 1.16
+tested-with: GHC == 7.4, GHC == 7.6, GHC == 7.8
+
+flag threaded
+  description: Build with threaded runtime
+  default:     True
+
+flag eventlog
+  description: Enable the eventlog, useful for profiling
+  default:     False
+
+library
+  hs-source-dirs:      src
+  ghc-options:         -Wall -ferror-spans
+  default-language:    Haskell2010
+
+  if impl(ghc >= 6.13.0)
+    ghc-options: -rtsopts
+
+  if flag(threaded)
+    ghc-options: -threaded
+
+  if flag(eventlog)
+    ghc-options: -eventlog
+
+  exposed-modules:     Network.Anonymous.I2P
+
+  build-depends:       base
+
+test-suite network-anonymous-i2p-test
+  type:                exitcode-stdio-1.0
+  ghc-options:         -Wall -ferror-spans -threaded -auto-all -caf-all -fno-warn-type-defaults -fhpc
+  default-language:    Haskell2010
+  hs-source-dirs:      test
+  main-is:             Main.hs
+  other-modules:       Spec,
+                       Main
+
+  build-depends:       base,
+                       hspec,
+
+                       network-anonymous-i2p
+
+test-suite hpc-test
+    type:             exitcode-stdio-1.0
+    default-language: Haskell2010
+    hs-source-dirs:   test
+    main-is:          HPC.hs
+    build-depends:    base,
+                      process,
+                      regex-compat
+
+test-suite hlint-test
+    type:             exitcode-stdio-1.0
+    default-language: Haskell2010
+    hs-source-dirs:   test
+    main-is:          HLint.hs
+    build-depends:    base,
+                      hlint
+
+source-repository head
+  type: git
+  location: git://github.com/solatis/haskell-network-anonymous-i2p.git
+  branch: master
