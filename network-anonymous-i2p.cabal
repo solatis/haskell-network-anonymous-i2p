@@ -32,7 +32,7 @@ library
 
   exposed-modules:     Network.Anonymous.I2P
 
-  build-depends:       base
+  build-depends:       base <= 4
 
 test-suite network-anonymous-i2p-test
   type:                exitcode-stdio-1.0
