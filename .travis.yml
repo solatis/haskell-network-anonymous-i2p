@@ -26,14 +26,14 @@ install:
  - cabal --version
  - echo "$(ghc --version) [$(ghc --print-project-git-commit-id 2> /dev/null || echo '?')]"
  - travis_retry cabal update
- - cabal install --only-dependencies --enable-tests --enable-benchmarks
+ - cabal install --only-dependencies --enable-tests
 
 script:
- - cabal configure --enable-tests --enable-benchmarks -v2  # -v2 provides useful information for debugging
+ - cabal configure --enable-tests --enable-library-profiling --enable-executable-profiling --enable-benchmarks --enable-library-coverage -v2
  - cabal build   # this builds all libraries and executables (including tests/benchmarks)
  - cabal test
 
 after_script:
-  - cabal install --force-reinstalls hpc-coveralls
-  - find dist/
-  - hpc-coveralls network-anonymous-i2p-test
+  - cabal install hpc-coveralls
+  - find bin/
+  - bin/hpc-coveralls network-anonymous-i2p-test
