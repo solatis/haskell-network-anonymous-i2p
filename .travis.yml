@@ -35,11 +35,11 @@ install:
  - cabal install --only-dependencies --enable-tests
 
 script:
- - cabal configure --enable-tests --enable-benchmarks --enable-library-coverage -v2
+ - cabal configure --enable-tests --enable-library-profiling --enable-executable-profiling --enable-benchmarks --enable-library-coverage -v2
  - cabal build   # this builds all libraries and executables (including tests/benchmarks)
  - cabal test
 
 after_script:
-  - cabal install hpc-coveralls
+  - cabal install --force-reinstalls hpc-coveralls
   - find ~/.cabal/bin/
   - hpc-coveralls network-anonymous-i2p-test
