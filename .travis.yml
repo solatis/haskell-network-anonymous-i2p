@@ -20,7 +20,7 @@ before_install:
    else
      travis_retry sudo apt-get install happy alex
    fi 
- - export PATH=/opt/ghc/$GHCVER/bin:/opt/cabal/$CABALVER/bin:$PATH
+ - export PATH=/opt/ghc/$GHCVER/bin:/opt/cabal/$CABALVER/bin:$HOME/.cabal/bin:$PATH
 
 install:
  - cabal --version
@@ -35,5 +35,5 @@ script:
 
 after_script:
   - cabal install hpc-coveralls
-  - find bin/
-  - bin/hpc-coveralls network-anonymous-i2p-test
+  - find ~/.cabal/bin/
+  - hpc-coveralls network-anonymous-i2p-test
