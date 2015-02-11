@@ -12,7 +12,7 @@ stability: experimental
 synopsis: Haskell API for I2P anonymous networking
 build-type: Simple
 data-files: LICENSE, README.md
-cabal-version: >= 1.14
+cabal-version: >= 1.10
 tested-with: GHC == 7.4, GHC == 7.6, GHC == 7.8, GHC == 7.10
 
 flag eventlog
