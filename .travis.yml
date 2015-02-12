@@ -25,8 +25,26 @@ matrix:
     
 before_install:
  - travis_retry sudo add-apt-repository -y ppa:hvr/ghc
+ - travis_retry sudo apt-add-repository -y ppa:i2p-maintainers/i2p
  - travis_retry sudo apt-get update
  - travis_retry sudo apt-get install cabal-install-$CABALVER ghc-$GHCVER
+ - travis_retry sudo apt-get install i2p
+ - sudo sed -i /etc/default/i2p -e 's/RUN_DAEMON="false"/RUN_DAEMON="true"/'
+
+# This generates the initial configuration
+ - sudo service i2p start
+ - sudo service i2p stop
+
+# Open up the SAM and BOB bridges
+ - sudo sed -i /var/lib/i2p/i2p-config/clients.config -e 's/clientApp.1.startOnLoad=false/clientApp.1.startOnLoad=true/'
+ - sudo sed -i /var/lib/i2p/i2p-config/clients.config -e 's/clientApp.5.startOnLoad=false/clientApp.5.startOnLoad=true/'
+
+ - sudo cat /var/lib/i2p/i2p-config/clients.config
+ - sudo service i2p start
+
+# Wait until SAM and BOB bridges are open
+ - nc -zvv localhost 7656; out=$?; while [[ $out -ne 0 ]]; do echo "Retry hit port 7656..."; nc -zvv localhost 7656; out=$?; sleep 1; done
+ - nc -zvv localhost 2827; out=$?; while [[ $out -ne 0 ]]; do echo "Retry hit port 2827..."; nc -zvv localhost 2827; out=$?; sleep 1; done
 
 # Update happy when building with GHC >= 7.8
  - |
@@ -64,9 +82,10 @@ script:
    else
       echo "expected '$SRC_TGZ' not found";
       exit 1;
-   fi 
+   fi ;
+   cd ../
 
 after_script:
   - cabal install --force-reinstalls hpc-coveralls
-  - find ~/.cabal/bin/
+  - find dist/
   - hpc-coveralls network-anonymous-i2p-test
