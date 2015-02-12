@@ -64,7 +64,7 @@ install:
 
 script:
  - |
-   if [ $CABALVER = "1.22" ]; then
+   if [ $CABALVER = "1.22" ] || [ $CABALVER = "head" ]; then
       cabal configure --enable-tests --enable-benchmarks --enable-coverage -v2
    else
       cabal configure --enable-tests --enable-benchmarks --enable-library-coverage -v2
