@@ -30,7 +30,8 @@ library
   if flag(eventlog)
     ghc-options: -eventlog
 
-  exposed-modules:     Network.Anonymous.I2P
+  exposed-modules:     Network.Anonymous.I2P,
+                       Network.Anonymous.I2P.Types
 
   build-depends:       base == 4.*
 
