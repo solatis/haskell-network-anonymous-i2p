@@ -1,6 +1,14 @@
 -- | Types used by various components of the I2P library
 module Network.Anonymous.I2P.Types where
 
+import qualified Network.Socket as NS
+
+-- | Alias for a hostname
+type HostName = NS.HostName
+
+-- | Alias for a port number
+type PortNumber = NS.PortNumber
+
 -- | Socket types
 data SocketType =
   -- | Virtual streams are guaranteed to be sent reliably and in order, with
@@ -24,3 +32,12 @@ data SocketType =
   DatagramAnonymous
 
   deriving (Eq, Show)
+
+-- | I2P context information
+data Context = Context {
+  -- | The type of socket the client wishes to use
+  socketType :: SocketType,
+
+  -- | Connection to our I2P SAM bridge host
+  masterConn :: NS.Socket
+  }
