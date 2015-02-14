@@ -70,4 +70,4 @@ after_script:
   - find dist/
   - find .hpc/  
   - hpc report ./dist/hpc/tix/network-anonymous-i2p-test/network-anonymous-i2p-test.tix
-  - hpc-coveralls network-anonymous-i2p-test
+  - hpc-coveralls --exclude-dir=test network-anonymous-i2p-test
