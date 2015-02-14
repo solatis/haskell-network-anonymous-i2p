@@ -68,4 +68,6 @@ script:
 after_script:
   - cabal install --force-reinstalls hpc-coveralls
   - find dist/
+  - find .hpc/  
+  - hpc report ./dist/hpc/tix/network-anonymous-i2p-test/network-anonymous-i2p-test.tix
   - hpc-coveralls network-anonymous-i2p-test
