@@ -37,6 +37,10 @@ library
   exposed-modules:     Network.Anonymous.I2P,
                        Network.Anonymous.I2P.Types
 
+  other-modules:       Network.Anonymous.I2P.Internal.Network.Protocol,
+                       Network.Anonymous.I2P.Internal.Network.Socket,
+                       Network.Anonymous.I2P.Internal.Debug
+
   build-depends:       base == 4.*,
                        network,
                        binary,
@@ -57,6 +61,9 @@ test-suite network-anonymous-i2p-test
 
   build-depends:       base,
                        hspec,
+                       resourcet,
+                       mtl,
+                       network,
 
                        network-anonymous-i2p
 
