@@ -41,7 +41,7 @@ library
                        Network.Anonymous.I2P.Internal.Network.Socket,
                        Network.Anonymous.I2P.Internal.Debug
 
-  build-depends:       base == 4.*,
+  build-depends:       base >= 4.7 && base < 5,
                        network,
                        binary,
                        bytestring,
