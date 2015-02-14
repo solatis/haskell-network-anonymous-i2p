@@ -52,6 +52,7 @@ script:
  - cabal configure --enable-tests --enable-benchmarks -fdebug -v2
  - cabal build -v2
  - cabal test -v2
+ - cabal check
  - cabal sdist
  
 # The following scriptlet checks that the resulting source distribution can be built & installed
@@ -64,10 +65,3 @@ script:
       exit 1;
    fi ;
    cd ../
-
-after_script:
-  - cabal install --force-reinstalls hpc-coveralls
-  - find dist/
-  - find .hpc/  
-  - hpc report ./dist/hpc/tix/network-anonymous-i2p-test/network-anonymous-i2p-test.tix
-  - hpc-coveralls --exclude-dir=test network-anonymous-i2p-test
