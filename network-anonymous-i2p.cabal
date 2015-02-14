@@ -34,11 +34,11 @@ library
   if flag(eventlog)
     ghc-options: -eventlog
 
-  exposed-modules:     Network.Anonymous.I2P,
+  exposed-modules:     Network.Anonymous.I2P
                        Network.Anonymous.I2P.Types
 
-  other-modules:       Network.Anonymous.I2P.Internal.Network.Protocol,
-                       Network.Anonymous.I2P.Internal.Network.Socket,
+  other-modules:       Network.Anonymous.I2P.Internal.Network.Protocol
+                       Network.Anonymous.I2P.Internal.Network.Socket
                        Network.Anonymous.I2P.Internal.Debug
 
   build-depends:       base                     >= 4.3          && < 5
@@ -56,16 +56,16 @@ test-suite network-anonymous-i2p-test
   default-language:    Haskell2010
   hs-source-dirs:      test
   main-is:             Main.hs
-  other-modules:       Spec,
+  other-modules:       Spec
                        Main
 
-  build-depends:       base,
-                       hspec,
-                       resourcet,
-                       mtl,
-                       network,
+  build-depends:       base                     >= 4.3          && < 5
+                     , hspec
+                     , resourcet
+                     , mtl
+                     , network
 
-                       network-anonymous-i2p
+                     , network-anonymous-i2p
 
 test-suite hlint-test
     type:             exitcode-stdio-1.0
