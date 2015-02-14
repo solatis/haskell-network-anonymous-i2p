@@ -41,14 +41,14 @@ library
                        Network.Anonymous.I2P.Internal.Network.Socket,
                        Network.Anonymous.I2P.Internal.Debug
 
-  build-depends:       base >= 4.7 && base < 5,
-                       network,
-                       binary,
-                       bytestring,
-                       transformers,
-                       lifted-base,
-                       mtl,
-                       resourcet
+  build-depends:       base                     >= 4.3          && < 5
+                     , network
+                     , binary
+                     , bytestring
+                     , transformers
+                     , lifted-base
+                     , mtl
+                     , resourcet
 
 test-suite network-anonymous-i2p-test
   type:                exitcode-stdio-1.0
