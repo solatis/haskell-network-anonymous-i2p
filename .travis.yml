@@ -15,6 +15,9 @@ before_install:
  - travis_retry sudo apt-get install i2p
  - sudo sed -i /etc/default/i2p -e 's/RUN_DAEMON="false"/RUN_DAEMON="true"/'
 
+ - export PATH=/opt/ghc/$GHCVER/bin:/opt/cabal/$CABALVER/bin:$HOME/.cabal/bin:$PATH
+ - travis_retry cabal update
+
 # This generates the initial configuration
  - sudo service i2p start
  - sudo service i2p stop
@@ -44,12 +47,9 @@ before_install:
  - cabal install hpc-coveralls -j --bindir=$HOME/.cabal/bin/ --constraint='aeson >= 0.7'
  - cabal sandbox delete
 
- - export PATH=/opt/ghc/$GHCVER/bin:/opt/cabal/$CABALVER/bin:$HOME/.cabal/bin:$PATH
-
 install:
  - cabal --version
  - echo "$(ghc --version) [$(ghc --print-project-git-commit-id 2> /dev/null || echo '?')]"
- - travis_retry cabal update
  - travis_retry cabal install --only-dependencies --enable-tests --enable-benchmarks -v2
 
 script:
