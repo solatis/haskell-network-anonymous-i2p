@@ -46,18 +46,12 @@ install:
  - cabal --version
  - echo "$(ghc --version) [$(ghc --print-project-git-commit-id 2> /dev/null || echo '?')]"
  - travis_retry cabal update
- - travis_retry cabal install --only-dependencies --enable-tests --enable-benchmarks --verbose=3
+ - travis_retry cabal install --only-dependencies --enable-tests --enable-benchmarks -v2
 
 script:
- - |
-   if [ $CABALVER = "1.22" ] || [ $CABALVER = "head" ]; then
-      cabal configure --enable-tests --enable-benchmarks --enable-coverage -v2
-   else
-      cabal configure --enable-tests --enable-benchmarks --enable-library-coverage -v2
-   fi
- - cabal build   # this builds all libraries and executables (including tests/benchmarks)
- - cabal test
- - cabal check
+ - cabal configure --enable-tests --enable-benchmarks -fdebug --ghc-option=-fhpc -v2
+ - cabal build -v2
+ - cabal test -v2
  - cabal sdist
  
 # The following scriptlet checks that the resulting source distribution can be built & installed
