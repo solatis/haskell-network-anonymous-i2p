@@ -1,6 +1,4 @@
 env:
- - CABALVER=1.18 GHCVER=7.8.4
- - CABALVER=1.20 GHCVER=7.8.4
  - CABALVER=1.22 GHCVER=7.8.4
  - CABALVER=1.22 GHCVER=7.10.1
  - CABALVER=head GHCVER=head
@@ -40,6 +38,12 @@ before_install:
    else
      travis_retry sudo apt-get install happy alex
    fi 
+
+# Install hpc-coveralls
+ - travis_retry cabal sandbox init
+ - cabal install hpc-coveralls -j --bindir=$HOME/.cabal/bin/ --constraint='aeson >= 0.7'
+ - cabal sandbox delete
+
  - export PATH=/opt/ghc/$GHCVER/bin:/opt/cabal/$CABALVER/bin:$HOME/.cabal/bin:$PATH
 
 install:
@@ -49,9 +53,9 @@ install:
  - travis_retry cabal install --only-dependencies --enable-tests --enable-benchmarks -v2
 
 script:
- - cabal configure --enable-tests --enable-benchmarks -fdebug -v2
- - cabal build -v2
- - cabal test -v2
+ - cabal configure --enable-tests --enable-benchmarks --enable-coverage -fdebug -v2
+ - cabal build -j
+ - run-cabal-test --cabal-name=cabal --show-details=always
  - cabal check
  - cabal sdist
  
@@ -65,3 +69,6 @@ script:
       exit 1;
    fi ;
    cd ../
+
+after_script:
+ - hpc-coveralls test-suite
