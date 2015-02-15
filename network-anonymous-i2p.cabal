@@ -61,7 +61,6 @@ test-suite test-suite
   main-is:             Main.hs
 
   other-modules:       Network.Anonymous.I2P.ConnectSpec
-                       Network.Anonymous.I2P.HlintSpec
                        Spec
                        Main
 
