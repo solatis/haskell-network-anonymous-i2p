@@ -55,11 +55,14 @@ library
 
 test-suite test-suite
   type:                exitcode-stdio-1.0
-  ghc-options:         -Wall -ferror-spans -threaded -auto-all -caf-all -fno-warn-type-defaults -fhpc
+  ghc-options:         -Wall -ferror-spans -threaded -auto-all -caf-all -fno-warn-type-defaults
   default-language:    Haskell2010
   hs-source-dirs:      test
   main-is:             Main.hs
-  other-modules:       Spec
+
+  other-modules:       Network.Anonymous.I2P.ConnectSpec
+                       Network.Anonymous.I2P.HlintSpec
+                       Spec
                        Main
 
   if flag(debug)

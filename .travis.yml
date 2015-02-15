@@ -71,4 +71,5 @@ script:
    cd ../
 
 after_script:
+ - find .
  - hpc-coveralls test-suite
