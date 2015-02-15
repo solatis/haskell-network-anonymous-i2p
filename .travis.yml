@@ -53,7 +53,7 @@ install:
  - travis_retry cabal install --only-dependencies --enable-tests --enable-benchmarks -v2
 
 script:
- - cabal configure --enable-tests --enable-benchmarks --enable-coverage -fdebug -v2
+ - cabal configure --enable-tests --enable-benchmarks --enable-library-coverage -fdebug -v2
  - cabal build -j
  - run-cabal-test --cabal-name=cabal --show-details=always
  - cabal check
