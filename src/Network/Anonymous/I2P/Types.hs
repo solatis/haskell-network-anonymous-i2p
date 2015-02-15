@@ -31,8 +31,6 @@ data SocketType =
   -- unreliable and unordered, and may be up to 32768 bytes.
   DatagramAnonymous
 
-  deriving (Eq, Show)
-
 -- | I2P context information
 data Context = Context {
   -- | The type of socket the client wishes to use
