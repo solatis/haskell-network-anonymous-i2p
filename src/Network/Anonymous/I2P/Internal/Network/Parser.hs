@@ -9,8 +9,9 @@ import           Control.Monad.Error
 
 import qualified Data.ByteString            as BS
 import qualified Network.Socket             as NS
-import qualified Network.Socket.ByteString  as NSB
 import qualified Data.Attoparsec.ByteString as Atto
+
+import qualified Network.Anonymous.I2P.Internal.Network.Socket as INS
 
 -- | The parsing continuation form of a "Data.Attoparsec" parser.
 type ParseC a = BS.ByteString -> Atto.Result a
@@ -40,7 +41,7 @@ parse buffer socket parser =
          -- complete; enter recursion with the new parser state.
          (_,  p1, Nothing)    -> do
            -- Read all bytes currently available on the socket
-           b1 <- liftIO $ NSB.recv socket 4096
+           b1 <- INS.readAvailable socket
            consumeNext b1 p1
 
          -- This case means that the parser has succesfully completed parsing one
