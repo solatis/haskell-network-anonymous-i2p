@@ -36,11 +36,11 @@ before_install:
 install:
  - cabal --version
  - echo "$(ghc --version) [$(ghc --print-project-git-commit-id 2> /dev/null || echo '?')]"
- - travis_retry cabal install --only-dependencies --enable-tests --enable-benchmarks -v2
+ - travis_retry cabal install --only-dependencies --enable-tests --enable-benchmarks -j
 
 script:
  - hlint src --ignore="Parse error"
- - cabal configure --enable-tests --enable-benchmarks --enable-library-coverage -fdebug -v2
+ - cabal configure --enable-tests --enable-benchmarks --enable-library-coverage -fdebug 
  - cabal build -j
  - run-cabal-test --cabal-name=cabal --show-details=always
  - cabal check
