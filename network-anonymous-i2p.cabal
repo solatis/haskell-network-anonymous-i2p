@@ -40,18 +40,23 @@ library
   exposed-modules:     Network.Anonymous.I2P
                        Network.Anonymous.I2P.Types
 
-  other-modules:       Network.Anonymous.I2P.Internal.Network.Protocol
-                       Network.Anonymous.I2P.Internal.Network.Socket
+  other-modules:       Network.Anonymous.I2P.Internal.Network.Socket
+                       Network.Anonymous.I2P.Internal.Network.Parser
+                       Network.Anonymous.I2P.Internal.Network.Protocol
                        Network.Anonymous.I2P.Internal.Debug
 
   build-depends:       base                     >= 4.3          && < 5
+
                      , network
-                     , binary
-                     , bytestring
-                     , transformers
-                     , lifted-base
-                     , mtl
+                     , attoparsec
                      , resourcet
+
+                     , text
+                     , bytestring
+
+                     , transformers
+                     , mtl
+                     , lifted-base
 
 test-suite test-suite
   type:                exitcode-stdio-1.0

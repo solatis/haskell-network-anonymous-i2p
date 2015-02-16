@@ -1,4 +1,5 @@
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE OverloadedStrings #-}
 
 -- | Network utility functions for I2P
@@ -10,10 +11,10 @@ import qualified Data.ByteString.Lazy           as BSL
 import           Data.Either                    ()
 
 import           Control.Monad.Error
+import           Control.Monad.Trans.Resource
+
 import           Control.Exception              (IOException)
 import           Control.Exception.Lifted       (try)
-
-import           Control.Monad.Trans.Resource
 
 import qualified Network.Socket                 as NS
 import qualified Network.Socket.ByteString      as NSB
@@ -90,11 +91,36 @@ connect host port =
 -- | Alternative implementation of connect that only returns the socket we're
 --   connected to.
 connect' :: ( MonadIO m
-           , MonadError String m
-           , MonadResource m)
+            , MonadError String m
+            , MonadResource m)
         => NS.HostName
         -> NS.PortNumber
         -> m NS.Socket
 connect' host port = do
   (s, _) <- connect host port
   return s
+
+-- | Puts strict ByteString on socket. Depending upon the size of the message,
+--   might block.
+sendBS :: (MonadIO m)
+       => NS.Socket
+       -> BS.ByteString
+       -> m ()
+sendBS socket msg =
+  D.log
+    ("Now sending over socket: " ++ show msg)
+    (liftIO $ NSB.sendAll socket msg)
+
+-- | Reads all bytes currently available
+readAvailable :: ( MonadIO m
+                 , MonadError String m)
+              => NS.Socket
+              -> m BS.ByteString
+readAvailable socket = do
+  buffer <- liftIO $ NSB.recv socket 4096
+
+  -- Since we're using TCP connections, according to the documentation, a 0-byte
+  -- return value means that the connection is closed.
+  if BS.null buffer
+    then throwError "Remote has closed the connection"
+    else return buffer
