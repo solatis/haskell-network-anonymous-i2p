@@ -40,7 +40,7 @@ hello hostname port =
 
       negotiateVersion s = do
         INS.sendBS s "HELLO VERSION\n"
-        D.log ("Parsing version") (INP.parseSingleton s samVersion)
+        D.log "Parsing version" (INP.parseSingleton s samVersion)
 
   in do
     s       <- sock
