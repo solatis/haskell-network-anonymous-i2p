@@ -110,17 +110,3 @@ sendBS socket msg =
   D.log
     ("Now sending over socket: " ++ show msg)
     (liftIO $ NSB.sendAll socket msg)
-
--- | Reads all bytes currently available
-readAvailable :: ( MonadIO m
-                 , MonadError String m)
-              => NS.Socket
-              -> m BS.ByteString
-readAvailable socket = do
-  buffer <- liftIO $ NSB.recv socket 4096
-
-  -- Since we're using TCP connections, according to the documentation, a 0-byte
-  -- return value means that the connection is closed.
-  if BS.null buffer
-    then throwError "Remote has closed the connection"
-    else return buffer

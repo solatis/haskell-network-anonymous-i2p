@@ -15,10 +15,10 @@ import           Data.Attoparsec.ByteString.Char8 (char,
                                                    sepBy,
                                                    endOfLine)
 import qualified Network.Socket as NS
+import qualified Network.Attoparsec as NA
 
 import qualified Network.Anonymous.I2P.Internal.Debug          as D
 import qualified Network.Anonymous.I2P.Internal.Network.Socket as INS
-import qualified Network.Anonymous.I2P.Internal.Network.Parser as INP
 
 -- | Establishes connection with SAM bridge and negotiates protocol version
 hello :: ( MonadIO m
@@ -40,7 +40,7 @@ hello hostname port =
 
       negotiateVersion s = do
         INS.sendBS s "HELLO VERSION\n"
-        D.log "Parsing version" (INP.parseSingleton s samVersion)
+        D.log "Parsing version" (NA.parseOne s (Atto.parse samVersion))
 
   in do
     s       <- sock

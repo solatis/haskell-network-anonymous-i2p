@@ -41,7 +41,6 @@ library
                        Network.Anonymous.I2P.Types
 
   other-modules:       Network.Anonymous.I2P.Internal.Network.Socket
-                       Network.Anonymous.I2P.Internal.Network.Parser
                        Network.Anonymous.I2P.Internal.Network.Protocol
                        Network.Anonymous.I2P.Internal.Debug
 
@@ -49,6 +48,7 @@ library
 
                      , network
                      , attoparsec
+                     , network-attoparsec
                      , resourcet
 
                      , text
