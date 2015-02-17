@@ -21,10 +21,12 @@ initialize :: ( MonadIO m
            -> m T.Context
 initialize host port socketType =
 
-  let handShake      = INP.hello host port
-      context s v    = return (T.Context socketType s v)
+  let connect      = INP.connect host port
+      version      = INP.hello
+      context s v  = return (T.Context socketType s v)
 
   in do
-    (socket, version) <- handShake
+    s <- connect
+    v <- version s
 
-    D.log ("initialized with version: " ++ show version) (context socket version)
+    D.log ("initialized with version: " ++ show v) (context s v)

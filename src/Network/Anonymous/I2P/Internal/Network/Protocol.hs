@@ -20,17 +20,23 @@ import qualified Network.Attoparsec as NA
 import qualified Network.Anonymous.I2P.Internal.Debug          as D
 import qualified Network.Anonymous.I2P.Internal.Network.Socket as INS
 
--- | Establishes connection with SAM bridge and negotiates protocol version
-hello :: ( MonadIO m
-         , MonadError String m
-         , MonadResource m)
-      => NS.HostName
-      -> NS.PortNumber
-      -> m (NS.Socket, [Integer])
-hello hostname port =
-  let sock = INS.connect' hostname port
+-- | Establishes connection with SAM bridge
+connect :: ( MonadIO m
+           , MonadError String m
+           , MonadResource m)
+        => NS.HostName
+        -> NS.PortNumber
+        -> m NS.Socket
+connect = INS.connect'
 
-      samVersion :: Atto.Parser [Integer]
+-- | Announces ourselves with SAM bridge and negotiates protocol version
+hello :: ( MonadIO m
+         , MonadError String m)
+      => NS.Socket   -- ^ Our connection with SAM bridge
+      -> m [Integer] -- ^ Version agreed upon, stores as a list of integers; for
+                     --   example, [3,1] means version 3.1
+hello =
+  let samVersion :: Atto.Parser [Integer]
       samVersion = do
         _       <- "HELLO REPLY RESULT=OK VERSION="
         version <- decimal `sepBy` char '.'
@@ -42,8 +48,4 @@ hello hostname port =
         INS.sendBS s "HELLO VERSION\n"
         D.log "Parsing version" (NA.parseOne s (Atto.parse samVersion))
 
-  in do
-    s       <- sock
-    version <- negotiateVersion s
-
-    D.log ("parsed vesion: " ++ show version) (return (s, version))
+  in negotiateVersion
