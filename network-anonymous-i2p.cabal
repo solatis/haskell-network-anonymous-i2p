@@ -39,8 +39,7 @@ library
 
   exposed-modules:     Network.Anonymous.I2P
                        Network.Anonymous.I2P.Types
-
-  other-modules:       Network.Anonymous.I2P.Internal.Network.Socket
+                       Network.Anonymous.I2P.Internal.Network.Socket
                        Network.Anonymous.I2P.Internal.Network.Protocol
                        Network.Anonymous.I2P.Internal.Debug
 
