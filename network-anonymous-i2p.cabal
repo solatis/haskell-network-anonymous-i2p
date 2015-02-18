@@ -64,7 +64,7 @@ test-suite test-suite
   hs-source-dirs:      test
   main-is:             Main.hs
 
-  other-modules:       Network.Anonymous.I2P.ConnectSpec
+  other-modules:       Network.Anonymous.I2P.Internal.Network.ProtocolSpec
                        Spec
                        Main
 
@@ -73,6 +73,7 @@ test-suite test-suite
 
   build-depends:       base                     >= 4.3          && < 5
                      , hspec
+                     , hspec-expectations
                      , resourcet
                      , mtl
                      , network
