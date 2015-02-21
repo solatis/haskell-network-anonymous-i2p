@@ -39,7 +39,7 @@ version =
         void (string "NOVERSION") *> pure VersionResultNone
 
       parseResultError :: Parser VersionResult
-      parseResultError = do
+      parseResultError =
         VersionResultError <$> (string "I2P_ERROR MESSAGE=" *> quotedMessage)
 
       parseResult :: Parser VersionResult
