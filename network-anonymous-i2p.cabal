@@ -25,8 +25,8 @@ flag eventlog
 
 library
   hs-source-dirs:      src
-  ghc-options:         -Wall -ferror-spans
   default-language:    Haskell2010
+  ghc-options:         -Wall -ferror-spans -auto-all -caf-all
 
   if impl(ghc >= 6.13.0)
     ghc-options: -rtsopts
@@ -39,16 +39,17 @@ library
 
   exposed-modules:     Network.Anonymous.I2P
                        Network.Anonymous.I2P.Types
-                       Network.Anonymous.I2P.Internal.Network.Socket
                        Network.Anonymous.I2P.Internal.Network.Protocol
+                       Network.Anonymous.I2P.Internal.Network.Protocol.Parser
                        Network.Anonymous.I2P.Internal.Debug
 
   build-depends:       base                     >= 4.3          && < 5
 
                      , network
+                     , network-simple
                      , attoparsec
                      , network-attoparsec
-                     , resourcet
+                     , exceptions
 
                      , text
                      , bytestring
@@ -59,10 +60,10 @@ library
 
 test-suite test-suite
   type:                exitcode-stdio-1.0
-  ghc-options:         -Wall -ferror-spans -threaded -auto-all -caf-all -fno-warn-type-defaults
   default-language:    Haskell2010
   hs-source-dirs:      test
   main-is:             Main.hs
+  ghc-options:         -Wall -ferror-spans -threaded -auto-all -caf-all -fno-warn-type-defaults
 
   other-modules:       Network.Anonymous.I2P.Internal.Network.ProtocolSpec
                        Spec
@@ -72,11 +73,17 @@ test-suite test-suite
     cpp-options: -DDEBUG
 
   build-depends:       base                     >= 4.3          && < 5
+                     , exceptions
+                     , mtl
+                     , transformers
+
+                     , attoparsec
+                     , bytestring
                      , hspec
                      , hspec-expectations
-                     , resourcet
-                     , mtl
+                     , hspec-attoparsec
                      , network
+                     , network-simple
 
                      , network-anonymous-i2p
 
