@@ -8,7 +8,7 @@ import           Control.Monad.Catch
 import           Control.Concurrent               (ThreadId, forkIO, killThread, threadDelay)
 
 import qualified Network.Socket                   as NS (Socket)
-import qualified Network.Simple.TCP               as NS (HostPreference (HostAny), acceptFork, listen, send)
+import qualified Network.Simple.TCP               as NS (HostPreference (HostAny), accept, listen, send)
 
 import           Network.Anonymous.I2P.Internal.Network.Protocol (connect, version)
 
@@ -21,10 +21,11 @@ mockServer :: ( MonadIO m
            -> (NS.Socket -> IO a)
            -> m ThreadId
 mockServer port callback =
-  liftIO $ forkIO $ NS.listen "*" port (\(lsock, _) ->
-                                         NS.accept lsock (\pair -> do
-                                                             _ <- callback (fst pair)
-                                                             return ()))
+  liftIO $ forkIO $ do
+    _ <- NS.listen "*" port (\(lsock, _) -> NS.accept lsock (\pair -> do
+                                                                _ <- callback (fst pair)
+                                                                return ()))
+    threadDelay 100000
 
 
 spec :: Spec
