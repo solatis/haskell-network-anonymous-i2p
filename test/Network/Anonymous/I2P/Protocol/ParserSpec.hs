@@ -1,9 +1,9 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Network.Anonymous.I2P.Internal.Network.Protocol.ParserSpec where
+module Network.Anonymous.I2P.Protocol.ParserSpec where
 
 import qualified Data.ByteString as BS
-import           Network.Anonymous.I2P.Internal.Network.Protocol.Parser
+import           Network.Anonymous.I2P.Protocol.Parser
 
 import           Test.Hspec
 import           Test.Hspec.Attoparsec

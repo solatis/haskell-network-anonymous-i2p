@@ -4,7 +4,7 @@
 --
 -- Defines parsers used by the I2P SAM protocol
 
-module Network.Anonymous.I2P.Internal.Network.Protocol.Parser where
+module Network.Anonymous.I2P.Protocol.Parser where
 
 import Control.Monad (void)
 import Control.Applicative ((<*>),

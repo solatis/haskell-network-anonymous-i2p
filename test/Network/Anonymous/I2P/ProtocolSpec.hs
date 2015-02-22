@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Network.Anonymous.I2P.Internal.Network.ProtocolSpec where
+module Network.Anonymous.I2P.ProtocolSpec where
 
 import           Control.Monad.IO.Class
 import Control.Exception.Base
@@ -10,7 +10,7 @@ import           Control.Concurrent               (ThreadId, forkIO, killThread,
 import qualified Network.Socket                   as NS (Socket)
 import qualified Network.Simple.TCP               as NS (HostPreference (HostAny), accept, listen, send)
 
-import           Network.Anonymous.I2P.Internal.Network.Protocol (connect, version)
+import           Network.Anonymous.I2P.Protocol (connect, version)
 
 import           Test.Hspec
 import           Test.Hspec.Expectations.Contrib

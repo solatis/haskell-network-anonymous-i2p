@@ -39,8 +39,8 @@ library
 
   exposed-modules:     Network.Anonymous.I2P
                        Network.Anonymous.I2P.Types
-                       Network.Anonymous.I2P.Internal.Network.Protocol
-                       Network.Anonymous.I2P.Internal.Network.Protocol.Parser
+                       Network.Anonymous.I2P.Protocol
+                       Network.Anonymous.I2P.Protocol.Parser
                        Network.Anonymous.I2P.Internal.Debug
 
   build-depends:       base                     >= 4.3          && < 5
@@ -64,7 +64,8 @@ test-suite test-suite
   main-is:             Main.hs
   ghc-options:         -Wall -ferror-spans -threaded -auto-all -caf-all -fno-warn-type-defaults
 
-  other-modules:       Network.Anonymous.I2P.Internal.Network.ProtocolSpec
+  other-modules:       Network.Anonymous.I2P.ProtocolSpec
+                       Network.Anonymous.I2P.Protocol.ParserSpec
                        Spec
                        Main
 

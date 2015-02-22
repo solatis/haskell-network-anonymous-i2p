@@ -3,7 +3,7 @@
 -- | Protocol description
 --
 -- Defines functions that handle the advancing of the SAMv3 protocol.
-module Network.Anonymous.I2P.Internal.Network.Protocol (NST.connect, version) where
+module Network.Anonymous.I2P.Protocol (NST.connect, version) where
 
 import           Control.Monad.Catch
 import           Control.Monad.IO.Class
@@ -19,7 +19,7 @@ import qualified Network.Attoparsec                                     as NA
 import qualified Data.ByteString                                        as BS
 import qualified Data.ByteString.Char8                                  as BS8
 
-import qualified Network.Anonymous.I2P.Internal.Network.Protocol.Parser as Parser
+import qualified Network.Anonymous.I2P.Protocol.Parser as Parser
 
 -- | Announces ourselves with SAM bridge and negotiates protocol version
 version :: ( MonadIO m

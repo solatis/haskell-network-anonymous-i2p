@@ -11,7 +11,7 @@ import qualified Network.Socket                                  as Network
 import qualified Data.ByteString.Char8 as BS8
 import qualified Network.Anonymous.I2P.Internal.Debug            as D
 import qualified Network.Anonymous.I2P.Types                     as T
-import qualified Network.Anonymous.I2P.Internal.Network.Protocol as INP
+import qualified Network.Anonymous.I2P.Protocol as INP
 
 -- | Establishes connection with I2P service and creates context that we use in
 --   other functions.
