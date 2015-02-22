@@ -62,5 +62,5 @@ versionWithConstraint (minV, maxV) (s, _) =
 
     case res of
      Parser.VersionResultOk v       -> D.log ("got version: " ++ show v) (return v)
-     Parser.VersionResultNone       -> D.log ("no good version found") (fail "No version could be negotiated")
+     Parser.VersionResultNone       -> D.log "no good version found" (fail "No version could be negotiated")
      Parser.VersionResultError msg  -> D.log ("protocol error: " ++ show msg) (fail ("An error occured while negotiating version: " ++ msg))
