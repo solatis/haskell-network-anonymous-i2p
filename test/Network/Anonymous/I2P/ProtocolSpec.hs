@@ -3,17 +3,15 @@
 module Network.Anonymous.I2P.ProtocolSpec where
 
 import           Control.Monad.IO.Class
-import Control.Exception.Base
 import           Control.Monad.Catch
 import           Control.Concurrent               (ThreadId, forkIO, killThread, threadDelay)
 
 import qualified Network.Socket                   as NS (Socket)
-import qualified Network.Simple.TCP               as NS (HostPreference (HostAny), accept, listen, send)
+import qualified Network.Simple.TCP               as NS (accept, listen, send)
 
 import           Network.Anonymous.I2P.Protocol (connect, version)
 
 import           Test.Hspec
-import           Test.Hspec.Expectations.Contrib
 
 mockServer :: ( MonadIO m
               , MonadMask m)
@@ -49,6 +47,7 @@ spec = do
       in do
         thread <- liftIO $ mockServer "4322" serverSock
         connect "127.0.0.1" "4322" version `shouldReturn` [1,2]
+        killThread thread
 
     it "should use throw an error if no correct version can be found" $
       let serverSock = flip NS.send "HELLO REPLY RESULT=NOVERSION\n"
@@ -56,6 +55,7 @@ spec = do
       in do
         thread <- liftIO $ mockServer "4323" serverSock
         connect "127.0.0.1" "4323" version `shouldThrow` anyIOException
+        killThread thread
 
     it "should throw an error when the host sends an incomplete reply" $
       let serverSock = flip NS.send "HELLO VERSION REPLY "
@@ -63,3 +63,4 @@ spec = do
       in do
         thread <- liftIO $ mockServer "4324" serverSock
         connect "127.0.0.1" "4324" version `shouldThrow` anyIOException
+        killThread thread

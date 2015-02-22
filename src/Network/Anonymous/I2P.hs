@@ -8,7 +8,6 @@ import Control.Monad.Catch
 
 import qualified Network.Socket                                  as Network
 
-import qualified Data.ByteString.Char8 as BS8
 import qualified Network.Anonymous.I2P.Internal.Debug            as D
 import qualified Network.Anonymous.I2P.Types                     as T
 import qualified Network.Anonymous.I2P.Protocol as INP
@@ -21,11 +20,9 @@ withSession :: ( MonadIO m
             -> Network.ServiceName
             -> T.SocketType
             -> m ()
-withSession host port socketType =
+withSession host port _ =
   let handleSession s = do
-        liftIO $ putStrLn "got connection!"
         v <- INP.version s
-        liftIO $ putStrLn ("got version: " ++ show v)
-        return ()
+        D.log ("Got version: " ++ show v) (return ())
 
   in liftIO $ INP.connect host port handleSession

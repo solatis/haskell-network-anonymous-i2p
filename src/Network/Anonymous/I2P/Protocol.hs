@@ -8,16 +8,13 @@ module Network.Anonymous.I2P.Protocol (NST.connect, version) where
 import           Control.Monad.Catch
 import           Control.Monad.IO.Class
 
-import qualified Data.Attoparsec.ByteString                             as Atto
-import qualified Network.Simple.TCP                                     as NST
+import qualified Data.Attoparsec.ByteString            as Atto
+import qualified Network.Simple.TCP                    as NST
 
-import qualified Network.Socket                                         as Network
-import qualified Network.Socket.ByteString                              as Network
+import qualified Network.Socket                        as Network
+import qualified Network.Socket.ByteString             as Network
 
-import qualified Network.Attoparsec                                     as NA
-
-import qualified Data.ByteString                                        as BS
-import qualified Data.ByteString.Char8                                  as BS8
+import qualified Network.Attoparsec                    as NA
 
 import qualified Network.Anonymous.I2P.Protocol.Parser as Parser
 
@@ -32,6 +29,6 @@ version (s, _) = do
   res <- NA.parseOne s (Atto.parse Parser.version)
 
   case res of
-   Parser.VersionResultOk version -> return version
+   Parser.VersionResultOk v       -> return v
    Parser.VersionResultNone       -> fail "No version could be negotiated"
    Parser.VersionResultError msg  -> fail ("An error occured while negotiating version: " ++ msg)

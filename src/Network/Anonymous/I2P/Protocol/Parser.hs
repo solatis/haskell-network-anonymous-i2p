@@ -7,15 +7,12 @@
 module Network.Anonymous.I2P.Protocol.Parser where
 
 import Control.Monad (void)
-import Control.Applicative ((<*>),
-                            (*>),
-                            (<**>),
+import Control.Applicative ((*>),
                             (<*),
                             (<$>),
                             (<|>),
                             pure)
 
-import qualified Data.ByteString as BS
 import           Data.Attoparsec.ByteString
 import           Data.Attoparsec.ByteString.Char8
 
