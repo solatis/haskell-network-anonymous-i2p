@@ -96,7 +96,7 @@ session socketType (s, _) =
                   , "SIGNATURE_TYPE=EDDSA_SHA512_ED25519"]
 
   in do
-    sessionId <- liftIO $ createSessionId
+    sessionId <- liftIO createSessionId
     liftIO $ Network.sendAll s (versionString sessionId)
     res <- NA.parseOne s (Atto.parse Parser.session)
 
