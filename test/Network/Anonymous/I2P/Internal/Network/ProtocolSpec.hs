@@ -22,11 +22,10 @@ mockServer :: ( MonadIO m
            -> m ThreadId
 mockServer port callback =
   liftIO $ forkIO $ do
-    _ <- NS.listen "*" port (\(lsock, _) -> NS.accept lsock (\pair -> do
-                                                                _ <- callback (fst pair)
-                                                                return ()))
-    threadDelay 100000
-
+    NS.listen "*" port (\(lsock, _) -> NS.accept lsock (\pair -> do
+                                                           _ <- callback (fst pair)
+                                                           threadDelay 1000000
+                                                           return ()))
 
 spec :: Spec
 spec = do
@@ -37,29 +36,27 @@ spec = do
     it "connecting to a non-existent port should not work" $ do
       (connect "127.0.0.1" "1234" return) `shouldThrow` anyIOException
 
-    it "connecting to an alternative port should work" $
-      let serverSock :: NS.Socket
-                     -> IO ()
-          serverSock s = return ()
-
-      in do
-        thread <- mockServer "4321" serverSock
-        connect "127.0.0.1" "4321" (\_ -> return ()) `shouldReturn` ()
-
   describe "when negotiating protocol version" $ do
     it "should use protocol version 3.1 when connecting to SAM" $
       connect "127.0.0.1" "7656" version `shouldReturn` [3,1]
 
-    it "should use throw an error if no correct version can be found" $
-      let serverSock = flip NS.send "VERSION REPLY RESULT=NOVERSION\n"
+    it "should return an arbitrary version if we supply it" $
+      let serverSock = flip NS.send "HELLO REPLY RESULT=OK VERSION=1.2\n"
 
       in do
         thread <- liftIO $ mockServer "4322" serverSock
-        connect "127.0.0.1" "4322" version `shouldThrow` anyIOException
+        connect "127.0.0.1" "4322" version `shouldReturn` [1,2]
 
-    it "should throw an error when the host sends an incomplete reply" $
-      let serverSock = flip NS.send "VERSION REPLY "
+    it "should use throw an error if no correct version can be found" $
+      let serverSock = flip NS.send "HELLO REPLY RESULT=NOVERSION\n"
 
       in do
         thread <- liftIO $ mockServer "4323" serverSock
         connect "127.0.0.1" "4323" version `shouldThrow` anyIOException
+
+    it "should throw an error when the host sends an incomplete reply" $
+      let serverSock = flip NS.send "HELLO VERSION REPLY "
+
+      in do
+        thread <- liftIO $ mockServer "4324" serverSock
+        connect "127.0.0.1" "4324" version `shouldThrow` anyIOException

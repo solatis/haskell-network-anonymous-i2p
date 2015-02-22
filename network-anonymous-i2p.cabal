@@ -56,7 +56,6 @@ library
 
                      , transformers
                      , mtl
-                     , lifted-base
 
 test-suite test-suite
   type:                exitcode-stdio-1.0
