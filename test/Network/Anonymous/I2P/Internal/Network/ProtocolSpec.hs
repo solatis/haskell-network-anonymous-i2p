@@ -20,12 +20,14 @@ mockServer :: ( MonadIO m
            => String
            -> (NS.Socket -> IO a)
            -> m ThreadId
-mockServer port callback =
-  liftIO $ forkIO $ do
+mockServer port callback = do
+  liftIO $ forkIO $
     NS.listen "*" port (\(lsock, _) -> NS.accept lsock (\pair -> do
                                                            _ <- callback (fst pair)
                                                            threadDelay 1000000
                                                            return ()))
+
+  liftIO $ threadDelay 1000000
 
 spec :: Spec
 spec = do
