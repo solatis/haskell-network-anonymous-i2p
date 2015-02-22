@@ -9,7 +9,7 @@ import           Control.Concurrent               (ThreadId, forkIO, killThread,
 import qualified Network.Socket                   as NS (Socket)
 import qualified Network.Simple.TCP               as NS (accept, listen, send)
 
-import           Network.Anonymous.I2P.Protocol (connect, version)
+import           Network.Anonymous.I2P.Protocol (connect, version, versionWithConstraint)
 
 import           Test.Hspec
 
@@ -25,7 +25,7 @@ mockServer port callback = do
                                                            threadDelay 1000000
                                                            return ()))
 
-  liftIO $ threadDelay 1000000
+  liftIO $ threadDelay 500000
   return tid
 
 spec :: Spec
@@ -50,15 +50,18 @@ spec = do
         killThread thread
 
     it "should use throw an error if no correct version can be found" $
-      let serverSock = flip NS.send "HELLO REPLY RESULT=NOVERSION\n"
+      connect "127.0.0.1" "7656" (versionWithConstraint ([4,0], [4,1])) `shouldThrow` anyIOException
+
+    it "should throw an error when the host sends an incomplete reply" $
+      let serverSock = flip NS.send "HELLO VERSION REPLY "
 
       in do
         thread <- liftIO $ mockServer "4323" serverSock
         connect "127.0.0.1" "4323" version `shouldThrow` anyIOException
         killThread thread
 
-    it "should throw an error when the host sends an incomplete reply" $
-      let serverSock = flip NS.send "HELLO VERSION REPLY "
+    it "should throw an error when the host responds with an error" $
+      let serverSock = flip NS.send "HELLO REPLY RESULT=I2P_ERROR MESSAGE=\"fooMessage\"\n"
 
       in do
         thread <- liftIO $ mockServer "4324" serverSock
