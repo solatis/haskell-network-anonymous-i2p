@@ -13,8 +13,9 @@ import Control.Applicative ((*>),
                             (<|>),
                             pure)
 
-import           Data.Attoparsec.ByteString
-import           Data.Attoparsec.ByteString.Char8
+import qualified Data.ByteString as BS
+import           Data.Attoparsec.ByteString as Atto
+import           Data.Attoparsec.ByteString.Char8 as Atto8
 
 data VersionResult =
   VersionResultOk [Integer] |
@@ -23,15 +24,20 @@ data VersionResult =
   deriving (Show, Eq)
 
 data SessionResult =
-  SessionResultOk String      |
-  SessionResultDuplicatedId   |
-  SessionResultDuplicatedDest |
-  SessionResultInvalidKey     |
+  SessionResultOk BS.ByteString |
+  SessionResultDuplicatedId     |
+  SessionResultDuplicatedDest   |
+  SessionResultInvalidKey       |
   SessionResultError String
   deriving (Show, Eq)
 
+-- | A parser that reads a quoted message
 quotedMessage :: Parser String
 quotedMessage = string "\"" *> manyTill anyChar (string "\"")
+
+-- | A parser that readsa  message until EOL is reached. EOL is *not* consumed.
+endOfLineMessage :: Parser BS.ByteString
+endOfLineMessage = Atto.takeTill (Atto.inClass "\r\n")
 
 version :: Parser VersionResult
 version =
@@ -61,7 +67,7 @@ session :: Parser SessionResult
 session =
   let parseResultOk :: Parser SessionResult
       parseResultOk =
-        SessionResultOk <$> (string "OK DESTINATION=" *> quotedMessage)
+        SessionResultOk <$> (string "OK DESTINATION=" *> endOfLineMessage)
 
       parseResultDuplicatedId :: Parser SessionResult
       parseResultDuplicatedId =

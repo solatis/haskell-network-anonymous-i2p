@@ -77,7 +77,7 @@ session :: ( MonadIO m
            , MonadMask m)
         => SocketType                         -- ^ I2P socket type to create
         -> (Network.Socket, Network.SockAddr) -- ^ Our connection with SAM bridge
-        -> m (String, String)                 -- ^ Our session id and our private destination key
+        -> m (String, BS.ByteString)          -- ^ Our session id and our private destination key
 session socketType (s, _) =
   let socketTypeToString :: SocketType -> BS.ByteString
       socketTypeToString VirtualStream     = "STREAM"
@@ -93,11 +93,15 @@ session socketType (s, _) =
         BS.concat [ "SESSION CREATE STYLE=", socketTypeToString socketType, " "
                   , "ID=\"", BS8.pack sessionId, "\" "
                   , "DESTINATION=TRANSIENT "
-                  , "SIGNATURE_TYPE=EDDSA_SHA512_ED25519"]
+                  , "SIGNATURE_TYPE=EDDSA_SHA512_ED25519"
+                  , "\n"]
 
   in do
     sessionId <- liftIO createSessionId
+    liftIO $ putStrLn ("created session id: " ++ show sessionId)
+    liftIO $ putStrLn ("sending version string: " ++ show (versionString sessionId))
     liftIO $ Network.sendAll s (versionString sessionId)
+    liftIO $ putStrLn ("sent version string, now parsing response!")
     res <- NA.parseOne s (Atto.parse Parser.session)
 
     case res of

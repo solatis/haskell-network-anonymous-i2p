@@ -9,7 +9,12 @@ import           Control.Concurrent               (ThreadId, forkIO, killThread,
 import qualified Network.Socket                   as NS (Socket)
 import qualified Network.Simple.TCP               as NS (accept, listen, send)
 
-import           Network.Anonymous.I2P.Protocol (connect, version, versionWithConstraint)
+import           Network.Anonymous.I2P.Protocol (connect, version, versionWithConstraint, session)
+import qualified Network.Anonymous.I2P.Types as T
+
+import Data.Maybe (isJust, fromJust)
+import qualified Data.UUID      as Uuid
+import qualified Data.UUID.Util as Uuid
 
 import           Test.Hspec
 
@@ -67,3 +72,16 @@ spec = do
         thread <- liftIO $ mockServer "4324" serverSock
         connect "127.0.0.1" "4324" version `shouldThrow` anyIOException
         killThread thread
+
+  describe "when creating session" $ do
+    it "should return a session id and a destionation" $
+      let createSession pair = do
+            _ <- version pair
+            putStrLn "got version, now creating session.."
+            session T.VirtualStream pair
+
+      in do
+        (sessionId, destinationId) <- connect "127.0.0.1" "7656" createSession
+
+        (Uuid.fromString sessionId) `shouldSatisfy` isJust
+        (Uuid.version (fromJust (Uuid.fromString sessionId))) `shouldBe` 4

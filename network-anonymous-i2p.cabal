@@ -80,11 +80,13 @@ test-suite test-suite
 
                      , attoparsec
                      , bytestring
+                     , uuid
+                     , network
+                     , network-simple
+
                      , hspec
                      , hspec-expectations
                      , hspec-attoparsec
-                     , network
-                     , network-simple
 
                      , network-anonymous-i2p
 
