@@ -35,7 +35,7 @@ data SessionResult =
 quotedMessage :: Parser String
 quotedMessage = string "\"" *> manyTill anyChar (string "\"")
 
--- | A parser that readsa  message until EOL is reached. EOL is *not* consumed.
+-- | A parser that reads a message until EOL is reached. EOL is *not* consumed.
 endOfLineMessage :: Parser BS.ByteString
 endOfLineMessage = Atto.takeTill (Atto.inClass "\r\n")
 

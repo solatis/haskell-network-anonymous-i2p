@@ -32,16 +32,3 @@ data SocketType =
   DatagramAnonymous
 
   deriving (Show)
-
--- | I2P context information
-data Context = Context {
-  -- | The type of socket the client wishes to use
-  socketType :: SocketType,
-
-  -- | Connection to our I2P SAM bridge host
-  masterConn :: NS.Socket,
-
-  -- | The version of the protocol we are using
-  version    :: [Integer]
-
-  } deriving (Show)
