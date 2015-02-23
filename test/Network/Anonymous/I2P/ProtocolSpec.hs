@@ -2,20 +2,26 @@
 
 module Network.Anonymous.I2P.ProtocolSpec where
 
-import           Control.Monad.IO.Class
+import           Control.Concurrent                      (ThreadId, forkIO,
+                                                          killThread,
+                                                          threadDelay)
 import           Control.Monad.Catch
-import           Control.Concurrent               (ThreadId, forkIO, killThread, threadDelay)
+import           Control.Monad.IO.Class
 
-import qualified Network.Socket                   as NS (Socket)
-import qualified Network.Simple.TCP               as NS (accept, listen, send)
+import qualified Network.Simple.TCP                      as NS (accept, listen,
+                                                                send)
+import qualified Network.Socket                          as NS (Socket)
 
-import           Network.Anonymous.I2P.Protocol (connect, version, versionWithConstraint, session)
-import qualified Network.Anonymous.I2P.Types as T
+import           Network.Anonymous.I2P.Protocol          (connect, session,
+                                                          version,
+                                                          versionWithConstraint)
+import qualified Network.Anonymous.I2P.Types.Destination as D
+import qualified Network.Anonymous.I2P.Types.Socket      as S
 
-import qualified Data.ByteString as BS
-import Data.Maybe (isJust, fromJust)
-import qualified Data.UUID      as Uuid
-import qualified Data.UUID.Util as Uuid
+import qualified Data.ByteString                         as BS
+import           Data.Maybe                              (fromJust, isJust)
+import qualified Data.UUID                               as Uuid
+import qualified Data.UUID.Util                          as Uuid
 
 import           Test.Hspec
 
@@ -83,10 +89,10 @@ spec = do
 
             (Uuid.fromString sessionId) `shouldSatisfy` isJust
             (Uuid.version (fromJust (Uuid.fromString sessionId))) `shouldBe` 4
-            (BS.length (T.base64 destination)) `shouldSatisfy` (>= 387)
+            (BS.length (D.base64 destination)) `shouldSatisfy` (>= 387)
 
       in do
-         _ <- performTest T.VirtualStream
-         _ <- performTest T.DatagramRepliable
-         _ <- performTest T.DatagramAnonymous
+         _ <- performTest S.VirtualStream
+         _ <- performTest S.DatagramRepliable
+         _ <- performTest S.DatagramAnonymous
          return ()

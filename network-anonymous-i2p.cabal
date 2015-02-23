@@ -38,7 +38,8 @@ library
     cpp-options: -DDEBUG
 
   exposed-modules:     Network.Anonymous.I2P
-                       Network.Anonymous.I2P.Types
+                       Network.Anonymous.I2P.Types.Destination
+                       Network.Anonymous.I2P.Types.Socket
                        Network.Anonymous.I2P.Protocol
                        Network.Anonymous.I2P.Protocol.Parser
                        Network.Anonymous.I2P.Internal.Debug
