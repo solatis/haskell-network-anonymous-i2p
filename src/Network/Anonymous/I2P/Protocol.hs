@@ -71,8 +71,8 @@ versionWithConstraint (minV, maxV) (s, _) =
 
     case res of
      Parser.VersionResultOk v       -> D.log ("got version: " ++ show v)      (return v)
-     Parser.VersionResultNone       -> D.log "no good version found"          (E.i2pError (E.mkI2PError (E.noVersionErrorType)))
-     Parser.VersionResultError msg  -> D.log ("protocol error: " ++ show msg) (E.i2pError (E.mkI2PError (E.protocolErrorType)))
+     Parser.VersionResultNone       -> D.log "no good version found"          (E.i2pError (E.mkI2PError E.noVersionErrorType))
+     Parser.VersionResultError msg  -> D.log ("protocol error: " ++ show msg) (E.i2pError (E.mkI2PError E.protocolErrorType))
 
 
 session :: ( MonadIO m
@@ -108,7 +108,7 @@ session socketType (s, _) =
 
     case res of
      Parser.SessionResultOk d           -> D.log ("got destination: " ++ show d)  (return (sessionId, d))
-     Parser.SessionResultDuplicatedId   -> D.log "duplicated session id"          (E.i2pError (E.mkI2PError (E.duplicatedSessionIdErrorType)))
-     Parser.SessionResultDuplicatedDest -> D.log "duplicated destination"         (E.i2pError (E.mkI2PError (E.duplicatedDestinationErrorType)))
-     Parser.SessionResultInvalidKey     -> D.log "invalid destination id"         (E.i2pError (E.mkI2PError (E.invalidKeyErrorType)))
-     Parser.SessionResultError msg      -> D.log ("protocol error: " ++ show msg) (E.i2pError (E.mkI2PError (E.protocolErrorType)))
+     Parser.SessionResultDuplicatedId   -> D.log "duplicated session id"          (E.i2pError (E.mkI2PError E.duplicatedSessionIdErrorType))
+     Parser.SessionResultDuplicatedDest -> D.log "duplicated destination"         (E.i2pError (E.mkI2PError E.duplicatedDestinationErrorType))
+     Parser.SessionResultInvalidKey     -> D.log "invalid destination id"         (E.i2pError (E.mkI2PError E.invalidKeyErrorType))
+     Parser.SessionResultError msg      -> D.log ("protocol error: " ++ show msg) (E.i2pError (E.mkI2PError E.protocolErrorType))
