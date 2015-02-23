@@ -28,7 +28,7 @@ import qualified Network.Attoparsec                    as NA
 
 import qualified Network.Anonymous.I2P.Internal.Debug  as D
 import qualified Network.Anonymous.I2P.Protocol.Parser as Parser
-import           Network.Anonymous.I2P.Types           (SocketType (..))
+import           Network.Anonymous.I2P.Types           (SocketType (..), Destination)
 
 -- | Announces ourselves with SAM bridge and negotiates protocol version
 --
@@ -77,7 +77,7 @@ session :: ( MonadIO m
            , MonadMask m)
         => SocketType                         -- ^ I2P socket type to create
         -> (Network.Socket, Network.SockAddr) -- ^ Our connection with SAM bridge
-        -> m (String, BS.ByteString)          -- ^ Our session id and our private destination key
+        -> m (String, Destination)            -- ^ Our session id and our private destination key
 session socketType (s, _) =
   let socketTypeToString :: SocketType -> BS.ByteString
       socketTypeToString VirtualStream     = "STREAM"

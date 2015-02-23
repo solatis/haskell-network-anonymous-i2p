@@ -12,6 +12,7 @@ import qualified Network.Simple.TCP               as NS (accept, listen, send)
 import           Network.Anonymous.I2P.Protocol (connect, version, versionWithConstraint, session)
 import qualified Network.Anonymous.I2P.Types as T
 
+import qualified Data.ByteString as BS
 import Data.Maybe (isJust, fromJust)
 import qualified Data.UUID      as Uuid
 import qualified Data.UUID.Util as Uuid
@@ -74,11 +75,18 @@ spec = do
         killThread thread
 
   describe "when creating session" $ do
-    it "should be able to create a virtual stream session" $
-      let createSession pair = version pair >> session T.VirtualStream pair
+    it "should be able to create all types of socket types" $
+      let createSession socketType pair = version pair >> session socketType pair
+
+          performTest socketType = do
+            (sessionId, destination) <- connect "127.0.0.1" "7656" (createSession socketType)
+
+            (Uuid.fromString sessionId) `shouldSatisfy` isJust
+            (Uuid.version (fromJust (Uuid.fromString sessionId))) `shouldBe` 4
+            (BS.length (T.base64 destination)) `shouldSatisfy` (>= 387)
 
       in do
-        (sessionId, destinationId) <- connect "127.0.0.1" "7656" createSession
-
-        (Uuid.fromString sessionId) `shouldSatisfy` isJust
-        (Uuid.version (fromJust (Uuid.fromString sessionId))) `shouldBe` 4
+         _ <- performTest T.VirtualStream
+         _ <- performTest T.DatagramRepliable
+         _ <- performTest T.DatagramAnonymous
+         return ()

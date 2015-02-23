@@ -6,16 +6,14 @@
 
 module Network.Anonymous.I2P.Protocol.Parser where
 
-import Control.Monad (void)
-import Control.Applicative ((*>),
-                            (<*),
-                            (<$>),
-                            (<|>),
-                            pure)
+import           Control.Applicative               (pure, (*>), (<$>), (<*),
+                                                    (<|>))
+import           Control.Monad                     (void)
 
-import qualified Data.ByteString as BS
-import           Data.Attoparsec.ByteString as Atto
-import           Data.Attoparsec.ByteString.Char8 as Atto8
+import           Data.Attoparsec.ByteString        as Atto
+import           Data.Attoparsec.ByteString.Char8  as Atto8
+import qualified Data.ByteString                   as BS
+import qualified Network.Anonymous.I2P.Types       as T
 
 data VersionResult =
   VersionResultOk [Integer] |
@@ -24,7 +22,7 @@ data VersionResult =
   deriving (Show, Eq)
 
 data SessionResult =
-  SessionResultOk BS.ByteString |
+  SessionResultOk T.Destination |
   SessionResultDuplicatedId     |
   SessionResultDuplicatedDest   |
   SessionResultInvalidKey       |
@@ -67,7 +65,7 @@ session :: Parser SessionResult
 session =
   let parseResultOk :: Parser SessionResult
       parseResultOk =
-        SessionResultOk <$> (string "OK DESTINATION=" *> endOfLineMessage)
+        (SessionResultOk . T.Destination) <$> (string "OK DESTINATION=" *> endOfLineMessage)
 
       parseResultDuplicatedId :: Parser SessionResult
       parseResultDuplicatedId =
