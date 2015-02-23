@@ -38,6 +38,7 @@ library
     cpp-options: -DDEBUG
 
   exposed-modules:     Network.Anonymous.I2P
+                       Network.Anonymous.I2P.Error
                        Network.Anonymous.I2P.Types.Destination
                        Network.Anonymous.I2P.Types.Socket
                        Network.Anonymous.I2P.Protocol
@@ -66,7 +67,8 @@ test-suite test-suite
   main-is:             Main.hs
   ghc-options:         -Wall -ferror-spans -threaded -auto-all -caf-all -fno-warn-type-defaults
 
-  other-modules:       Network.Anonymous.I2P.ProtocolSpec
+  other-modules:       Network.Anonymous.I2P.Util
+                       Network.Anonymous.I2P.ProtocolSpec
                        Network.Anonymous.I2P.Protocol.ParserSpec
                        Spec
                        Main

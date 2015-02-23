@@ -30,6 +30,7 @@ import qualified Network.Anonymous.I2P.Internal.Debug    as D
 import qualified Network.Anonymous.I2P.Protocol.Parser   as Parser
 import qualified Network.Anonymous.I2P.Types.Destination as D
 import qualified Network.Anonymous.I2P.Types.Socket      as S
+import qualified Network.Anonymous.I2P.Error             as E
 
 -- | Announces ourselves with SAM bridge and negotiates protocol version
 --
@@ -70,8 +71,8 @@ versionWithConstraint (minV, maxV) (s, _) =
 
     case res of
      Parser.VersionResultOk v       -> D.log ("got version: " ++ show v)      (return v)
-     Parser.VersionResultNone       -> D.log "no good version found"          (fail "No version could be negotiated")
-     Parser.VersionResultError msg  -> D.log ("protocol error: " ++ show msg) (fail ("An error occured while negotiating version: " ++ msg))
+     Parser.VersionResultNone       -> D.log "no good version found"          (E.i2pError (E.mkI2PError (E.noVersionErrorType)))
+     Parser.VersionResultError msg  -> D.log ("protocol error: " ++ show msg) (E.i2pError (E.mkI2PError (E.protocolErrorType)))
 
 
 session :: ( MonadIO m
@@ -107,7 +108,7 @@ session socketType (s, _) =
 
     case res of
      Parser.SessionResultOk d           -> D.log ("got destination: " ++ show d)  (return (sessionId, d))
-     Parser.SessionResultDuplicatedId   -> D.log "duplicated session id"          (fail "Session id already in use")
-     Parser.SessionResultDuplicatedDest -> D.log "duplicated destination"         (fail "Destination already in use")
-     Parser.SessionResultInvalidKey     -> D.log "invalid destination id"         (fail "Destination is not a valid private destination key")
-     Parser.SessionResultError msg      -> D.log ("protocol error: " ++ show msg) (fail ("An error occured while creating session: " ++ msg))
+     Parser.SessionResultDuplicatedId   -> D.log "duplicated session id"          (E.i2pError (E.mkI2PError (E.duplicatedSessionIdErrorType)))
+     Parser.SessionResultDuplicatedDest -> D.log "duplicated destination"         (E.i2pError (E.mkI2PError (E.duplicatedDestinationErrorType)))
+     Parser.SessionResultInvalidKey     -> D.log "invalid destination id"         (E.i2pError (E.mkI2PError (E.invalidKeyErrorType)))
+     Parser.SessionResultError msg      -> D.log ("protocol error: " ++ show msg) (E.i2pError (E.mkI2PError (E.protocolErrorType)))

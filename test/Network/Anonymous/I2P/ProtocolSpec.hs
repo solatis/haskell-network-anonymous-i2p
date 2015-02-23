@@ -12,11 +12,13 @@ import qualified Network.Simple.TCP                      as NS (accept, listen,
                                                                 send)
 import qualified Network.Socket                          as NS (Socket)
 
+import qualified Network.Anonymous.I2P.Error             as E
 import           Network.Anonymous.I2P.Protocol          (connect, session,
                                                           version,
                                                           versionWithConstraint)
 import qualified Network.Anonymous.I2P.Types.Destination as D
 import qualified Network.Anonymous.I2P.Types.Socket      as S
+import qualified Network.Anonymous.I2P.Util              as U
 
 import qualified Data.ByteString                         as BS
 import           Data.Maybe                              (fromJust, isJust)
@@ -62,14 +64,14 @@ spec = do
         killThread thread
 
     it "should use throw an error if no correct version can be found" $
-      connect "127.0.0.1" "7656" (versionWithConstraint ([4,0], [4,1])) `shouldThrow` anyIOException
+      connect "127.0.0.1" "7656" (versionWithConstraint ([4,0], [4,1])) `shouldThrow` U.isI2PError E.noVersionErrorType
 
     it "should throw an error when the host sends an incomplete reply" $
       let serverSock = flip NS.send "HELLO VERSION REPLY "
 
       in do
         thread <- liftIO $ mockServer "4323" serverSock
-        connect "127.0.0.1" "4323" version `shouldThrow` anyIOException
+        connect "127.0.0.1" "4323" version `shouldThrow` anyIOException -- thrown by parser, not our own library
         killThread thread
 
     it "should throw an error when the host responds with an error" $
@@ -77,7 +79,7 @@ spec = do
 
       in do
         thread <- liftIO $ mockServer "4324" serverSock
-        connect "127.0.0.1" "4324" version `shouldThrow` anyIOException
+        connect "127.0.0.1" "4324" version `shouldThrow` U.isI2PError E.protocolErrorType
         killThread thread
 
   describe "when creating session" $ do
