@@ -101,7 +101,7 @@ session socketType (s, _) =
     liftIO $ putStrLn ("created session id: " ++ show sessionId)
     liftIO $ putStrLn ("sending version string: " ++ show (versionString sessionId))
     liftIO $ Network.sendAll s (versionString sessionId)
-    liftIO $ putStrLn ("sent version string, now parsing response!")
+    liftIO $ putStrLn "sent version string, now parsing response!"
     res <- NA.parseOne s (Atto.parse Parser.session)
 
     case res of

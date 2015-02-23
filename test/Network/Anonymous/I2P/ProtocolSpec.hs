@@ -74,11 +74,9 @@ spec = do
         killThread thread
 
   describe "when creating session" $ do
-    it "should return a session id and a destionation" $
-      let createSession pair = do
-            _ <- version pair
-            putStrLn "got version, now creating session.."
-            session T.VirtualStream pair
+    it "should be able to create a virtual stream session" $
+      let createSession pair =
+            version pair >> session T.VirtualStream pair
 
       in do
         (sessionId, destinationId) <- connect "127.0.0.1" "7656" createSession
