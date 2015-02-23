@@ -12,7 +12,7 @@ import Control.Exception.Base (Exception)
 type I2PError = I2PException
 
 data I2PException = I2PError {
-  i2pe_type :: I2PErrorType
+  i2peType :: I2PErrorType
   } deriving (Show, Eq, Typeable)
 
 instance Exception I2PException
@@ -28,7 +28,7 @@ data I2PErrorType
   deriving (Show, Eq)
 
 mkI2PError :: I2PErrorType -> I2PError
-mkI2PError t = I2PError { i2pe_type = t }
+mkI2PError t = I2PError { i2peType = t }
 
 -- | I2P error when no protocol version can be agreed upon
 noVersionErrorType :: I2PErrorType
