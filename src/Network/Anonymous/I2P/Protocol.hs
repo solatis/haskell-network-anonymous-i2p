@@ -6,7 +6,8 @@
 module Network.Anonymous.I2P.Protocol ( NST.connect
                                       , version
                                       , versionWithConstraint
-                                      , session) where
+                                      , session
+                                      , sessionWith) where
 
 import           Control.Monad.Catch
 import           Control.Monad.IO.Class
@@ -74,33 +75,41 @@ versionWithConstraint (minV, maxV) (s, _) =
      Parser.VersionResultNone       -> D.log "no good version found"          (E.i2pError (E.mkI2PError E.noVersionErrorType))
      Parser.VersionResultError msg  -> D.log ("protocol error: " ++ show msg) (E.i2pError (E.mkI2PError E.protocolErrorType))
 
-
 session :: ( MonadIO m
            , MonadMask m)
         => S.SocketType                       -- ^ I2P socket type to create
         -> (Network.Socket, Network.SockAddr) -- ^ Our connection with SAM bridge
         -> m (String, D.Destination)          -- ^ Our session id and our private destination key
-session socketType (s, _) =
+session = sessionWith Nothing
+
+sessionWith :: ( MonadIO m
+               , MonadMask m)
+            => Maybe String                       -- ^ Session id to use. If none is provided, a new
+                                                  --   unique session id is created.
+            -> S.SocketType                       -- ^ I2P socket type to create
+            -> (Network.Socket, Network.SockAddr) -- ^ Our connection with SAM bridge
+            -> m (String, D.Destination)          -- ^ Our session id and our private destination key
+sessionWith Nothing socketType pair = do
+  uuid <- liftIO Uuid.nextRandom
+  liftIO $ putStrLn ("created session id: " ++ show uuid)
+
+  sessionWith (Just (Uuid.toString uuid)) socketType pair
+
+sessionWith (Just sessionId) socketType (s, _) =
   let socketTypeToString :: S.SocketType -> BS.ByteString
       socketTypeToString S.VirtualStream     = "STREAM"
       socketTypeToString S.DatagramRepliable = "DATAGRAM"
       socketTypeToString S.DatagramAnonymous = "RAW"
 
-      createSessionId :: IO String
-      createSessionId =
-        return . Uuid.toString =<< Uuid.nextRandom
-
       versionString :: String -> BS.ByteString
-      versionString sessionId =
+      versionString sid =
         BS.concat [ "SESSION CREATE STYLE=", socketTypeToString socketType, " "
-                  , "ID=\"", BS8.pack sessionId, "\" "
+                  , "ID=\"", BS8.pack sid, "\" "
                   , "DESTINATION=TRANSIENT "
                   , "SIGNATURE_TYPE=EDDSA_SHA512_ED25519"
                   , "\n"]
 
   in do
-    sessionId <- liftIO createSessionId
-    liftIO $ putStrLn ("created session id: " ++ show sessionId)
     liftIO $ putStrLn ("sending version string: " ++ show (versionString sessionId))
     liftIO $ Network.sendAll s (versionString sessionId)
     liftIO $ putStrLn "sent version string, now parsing response!"
