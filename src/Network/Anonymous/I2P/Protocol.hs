@@ -75,37 +75,50 @@ versionWithConstraint (minV, maxV) (s, _) =
      Parser.VersionResultNone       -> D.log "no good version found"          (E.i2pError (E.mkI2PError E.noVersionErrorType))
      Parser.VersionResultError msg  -> D.log ("protocol error: " ++ show msg) (E.i2pError (E.mkI2PError E.protocolErrorType))
 
+-- | Create a session with default parameters provided.
 session :: ( MonadIO m
            , MonadMask m)
         => S.SocketType                       -- ^ I2P socket type to create
         -> (Network.Socket, Network.SockAddr) -- ^ Our connection with SAM bridge
         -> m (String, D.Destination)          -- ^ Our session id and our private destination key
-session = sessionWith Nothing
+session = sessionWith Nothing Nothing
 
+-- | Create a session, and explicitly provide all parameters to use
 sessionWith :: ( MonadIO m
                , MonadMask m)
             => Maybe String                       -- ^ Session id to use. If none is provided, a new
                                                   --   unique session id is created.
+            -> Maybe D.Destination                -- ^ Destination to use. If none is provided, a new
+                                                  --   unique destination will be created.
             -> S.SocketType                       -- ^ I2P socket type to create
             -> (Network.Socket, Network.SockAddr) -- ^ Our connection with SAM bridge
             -> m (String, D.Destination)          -- ^ Our session id and our private destination key
-sessionWith Nothing socketType pair = do
+
+-- Specialization where no session is was provided. In this case, we create a
+-- new session id based on a UUID, and enter recursion with the fresh session id
+-- provided.
+sessionWith Nothing destination socketType pair = do
   uuid <- liftIO Uuid.nextRandom
-  liftIO $ putStrLn ("created session id: " ++ show uuid)
 
-  sessionWith (Just (Uuid.toString uuid)) socketType pair
+  D.log
+    ("created session id: " ++ show uuid)
+    sessionWith (Just (Uuid.toString uuid)) destination socketType pair
 
-sessionWith (Just sessionId) socketType (s, _) =
+sessionWith (Just sessionId) destination socketType (s, _) =
   let socketTypeToString :: S.SocketType -> BS.ByteString
       socketTypeToString S.VirtualStream     = "STREAM"
       socketTypeToString S.DatagramRepliable = "DATAGRAM"
       socketTypeToString S.DatagramAnonymous = "RAW"
 
+      destinationToString :: Maybe D.Destination -> BS.ByteString
+      destinationToString Nothing = BS8.pack "TRANSIENT"
+      destinationToString (Just (D.Destination d)) = d
+
       versionString :: String -> BS.ByteString
       versionString sid =
         BS.concat [ "SESSION CREATE STYLE=", socketTypeToString socketType, " "
-                  , "ID=\"", BS8.pack sid, "\" "
-                  , "DESTINATION=TRANSIENT "
+                  , "ID=", BS8.pack sid, " "
+                  , "DESTINATION=", destinationToString destination, " "
                   , "SIGNATURE_TYPE=EDDSA_SHA512_ED25519"
                   , "\n"]
 

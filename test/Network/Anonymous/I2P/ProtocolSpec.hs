@@ -13,7 +13,9 @@ import qualified Network.Simple.TCP                      as NS (accept, listen,
 import qualified Network.Socket                          as NS (Socket)
 
 import qualified Network.Anonymous.I2P.Error             as E
-import           Network.Anonymous.I2P.Protocol          (connect, session,
+import           Network.Anonymous.I2P.Protocol          (connect,
+                                                          session,
+                                                          sessionWith,
                                                           version,
                                                           versionWithConstraint)
 import qualified Network.Anonymous.I2P.Types.Destination as D
@@ -98,3 +100,23 @@ spec = do
          _ <- performTest S.DatagramRepliable
          _ <- performTest S.DatagramAnonymous
          return ()
+
+    it "should throw a protocol error when creating a session twice" $
+      let createSession     socketType pair           = session socketType pair
+
+          performTest socketType pair = do
+            -- Note that we have to be inside the same connection here.
+            _ <- version pair
+            _ <- createSession socketType pair
+            createSession socketType pair `shouldThrow` U.isI2PError E.protocolErrorType
+
+      in connect "127.0.0.1" "7656" (performTest S.VirtualStream)
+
+    it "should throw an error when providing an invalid destination key" $
+      let createSessionWith destinationId socketType pair = sessionWith Nothing destinationId socketType pair
+
+          performTest socketType pair = do
+            _ <- version pair
+            createSessionWith (Just (D.Destination "123invalid")) socketType pair `shouldThrow` U.isI2PError E.invalidKeyErrorType
+
+      in connect "127.0.0.1" "7656" (performTest S.VirtualStream)
