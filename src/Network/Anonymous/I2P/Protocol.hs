@@ -111,18 +111,18 @@ sessionWith (Just sessionId) destination socketType (s, _) =
       socketTypeToString S.DatagramAnonymous = "RAW"
 
       destinationToString :: Maybe D.Destination -> BS.ByteString
-      destinationToString Nothing = BS8.pack "TRANSIENT"
+      destinationToString Nothing = BS8.pack "TRANSIENT SIGNATURE_TYPE=EDDSA_SHA512_ED25519"
       destinationToString (Just (D.Destination d)) = d
 
       versionString :: String -> BS.ByteString
       versionString sid =
         BS.concat [ "SESSION CREATE STYLE=", socketTypeToString socketType, " "
                   , "ID=", BS8.pack sid, " "
-                  , "DESTINATION=", destinationToString destination, " "
-                  , "SIGNATURE_TYPE=EDDSA_SHA512_ED25519"
+                  , "DESTINATION=", destinationToString destination
                   , "\n"]
 
   in do
+    liftIO $ putStrLn ("Sending version string: " ++ show (versionString sessionId))
     liftIO $ Network.sendAll s (versionString sessionId)
     res <- NA.parseOne s (Atto.parse Parser.session)
 
