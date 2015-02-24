@@ -39,23 +39,26 @@ endOfLineMessage = Atto.takeTill (Atto.inClass "\r\n")
 
 version :: Parser VersionResult
 version =
-  let parseResultOk :: Parser VersionResult
-      parseResultOk   =
-        VersionResultOk <$> (string "OK VERSION=" *> decimal `sepBy` char '.')
-
-      parseResultNone :: Parser VersionResult
+  let parseResultNone :: Parser VersionResult
       parseResultNone =
-        void (string "NOVERSION") *> pure VersionResultNone
+        void (
+          string "NOVERSION") *> pure VersionResultNone
+
+      parseResultOk :: Parser VersionResult
+      parseResultOk   =
+        VersionResultOk <$> (
+          string "OK VERSION=" *> decimal `sepBy` char '.')
 
       parseResultError :: Parser VersionResult
       parseResultError =
-        VersionResultError <$> (string "I2P_ERROR MESSAGE=" *> quotedMessage)
+        VersionResultError <$> (
+          string "I2P_ERROR MESSAGE=" *> quotedMessage)
 
       parseResult :: Parser VersionResult
       parseResult =
         "HELLO REPLY RESULT=" *>
-        (     parseResultOk
-          <|> parseResultNone
+        (     parseResultNone
+          <|> parseResultOk
           <|> parseResultError )
         <* endOfLine
 
@@ -63,33 +66,39 @@ version =
 
 session :: Parser SessionResult
 session =
-  let parseResultOk :: Parser SessionResult
-      parseResultOk =
-        (SessionResultOk . D.Destination) <$> (string "OK DESTINATION=" *> endOfLineMessage)
+  let parseResultInvalidKey :: Parser SessionResult
+      parseResultInvalidKey =
+        void (
+          string "INVALID_KEY") *> pure SessionResultInvalidKey
 
       parseResultDuplicatedId :: Parser SessionResult
       parseResultDuplicatedId =
-        void (string "DUPLICATED_ID") *> pure SessionResultDuplicatedId
+        void (
+          string "DUPLICATED_ID") *> pure SessionResultDuplicatedId
 
       parseResultDuplicatedDest :: Parser SessionResult
       parseResultDuplicatedDest =
-        void (string "DUPLICATED_DEST") *> pure SessionResultDuplicatedDest
+        void (
+          string "DUPLICATED_DEST") *> pure SessionResultDuplicatedDest
 
-      parseResultInvalidKey :: Parser SessionResult
-      parseResultInvalidKey =
-        void (string "INVALID_KEY") *> pure SessionResultInvalidKey
+      parseResultOk :: Parser SessionResult
+      parseResultOk =
+        (SessionResultOk . D.Destination) <$> (
+          string "OK DESTINATION=" *> endOfLineMessage)
 
       parseResultError :: Parser SessionResult
       parseResultError =
-        SessionResultError <$> (string "I2P_ERROR MESSAGE=" *> quotedMessage)
+        SessionResultError <$> (
+          string "I2P_ERROR MESSAGE=" *> quotedMessage)
 
       parseResult :: Parser SessionResult
       parseResult =
         "SESSION STATUS RESULT=" *>
-        (     parseResultOk
+
+        (     parseResultInvalidKey
           <|> parseResultDuplicatedId
           <|> parseResultDuplicatedDest
-          <|> parseResultInvalidKey
+          <|> parseResultOk
           <|> parseResultError )
         <* endOfLine
 
