@@ -35,54 +35,24 @@ noVersionErrorType :: I2PErrorType
 noVersionErrorType = NoVersion
 
 -- | I2P error when a session id already exists
-isNoVersionErrorType :: I2PErrorType -> Bool
-isNoVersionErrorType NoVersion = True
-isNoVersionErrorType _         = False
-
--- | I2P error when a session id already exists
 duplicatedSessionIdErrorType :: I2PErrorType
 duplicatedSessionIdErrorType = DuplicatedSessionId
-
--- | I2P error when a session id already exists
-isDuplicatedSessionIdErrorType :: I2PErrorType -> Bool
-isDuplicatedSessionIdErrorType DuplicatedSessionId = True
-isDuplicatedSessionIdErrorType _                   = False
 
 -- | I2P error when a destination already exists
 duplicatedDestinationErrorType :: I2PErrorType
 duplicatedDestinationErrorType = DuplicatedDestination
 
--- | I2P error when a destination already exists
-isDuplicatedDestinationErrorType :: I2PErrorType -> Bool
-isDuplicatedDestinationErrorType DuplicatedDestination = True
-isDuplicatedDestinationErrorType _                     = False
-
 -- | I2P error when an invalid (destination) key is used
 invalidKeyErrorType :: I2PErrorType
 invalidKeyErrorType = InvalidKey
-
--- | I2P error when an invalid (destination) key is used
-isInvalidKeyErrorType :: I2PErrorType -> Bool
-isInvalidKeyErrorType InvalidKey = True
-isInvalidKeyErrorType _          = False
 
 -- | I2P error when communication with the SAM bridge fails
 protocolErrorType :: I2PErrorType
 protocolErrorType = ProtocolError
 
--- | I2P error when an invalid (destination) key is used
-isProtocolErrorType :: I2PErrorType -> Bool
-isProtocolErrorType ProtocolError = True
-isProtocolErrorType _             = False
-
 -- | I2P error when error is unknown
 unknownErrorType :: I2PErrorType
 unknownErrorType = UnknownError
-
--- | I2P error when an invalid (destination) key is used
-isUnknownErrorType :: I2PErrorType -> Bool
-isUnknownErrorType UnknownError = True
-isUnknownErrorType _            = False
 
 -- | Raise an I2P Exception in the IO monad
 i2pException :: (MonadIO m)
