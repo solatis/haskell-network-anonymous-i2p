@@ -123,9 +123,7 @@ sessionWith (Just sessionId) destination socketType (s, _) =
                   , "\n"]
 
   in do
-    liftIO $ putStrLn ("sending version string: " ++ show (versionString sessionId))
     liftIO $ Network.sendAll s (versionString sessionId)
-    liftIO $ putStrLn "sent version string, now parsing response!"
     res <- NA.parseOne s (Atto.parse Parser.session)
 
     case res of

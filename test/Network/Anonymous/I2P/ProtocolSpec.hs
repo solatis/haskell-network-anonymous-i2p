@@ -112,6 +112,21 @@ spec = do
 
       in connect "127.0.0.1" "7656" (performTest S.VirtualStream)
 
+    it "should throw a protocol error when creating a session with a duplicated id" $
+      let socketType = S.VirtualStream
+          phase1 pair1 = do
+            _ <- version pair1
+            (sessionId1, _) <- session socketType pair1
+
+            connect "127.0.0.1" "7656" (phase2 sessionId1)
+
+          phase2 sessionId1 pair2 = do
+            _ <- version pair2
+            sessionWith (Just sessionId1) Nothing socketType pair2 `shouldThrow` U.isI2PError E.duplicatedSessionIdErrorType
+
+      in connect "127.0.0.1" "7656" phase1
+
+
     it "should throw an error when providing an invalid destination key" $
       let createSessionWith destinationId socketType pair = sessionWith Nothing destinationId socketType pair
 
