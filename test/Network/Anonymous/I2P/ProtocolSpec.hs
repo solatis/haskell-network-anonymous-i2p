@@ -95,11 +95,11 @@ spec = do
             (Uuid.version (fromJust (Uuid.fromString sessionId))) `shouldBe` 4
             (BS.length (D.base64 destination)) `shouldSatisfy` (>= 387)
 
-      in do
-         _ <- performTest S.VirtualStream
-         _ <- performTest S.DatagramRepliable
-         _ <- performTest S.DatagramAnonymous
-         return ()
+          socketTypes = [ S.VirtualStream
+                        , S.DatagramRepliable
+                        , S.DatagramAnonymous ]
+
+      in  mapM performTest socketTypes >> return ()
 
     it "should be able to create new destinations with all signature types" $
       let createSession signatureType pair = version pair >> sessionWith Nothing Nothing (Just signatureType) S.VirtualStream pair
