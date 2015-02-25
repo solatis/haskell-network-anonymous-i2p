@@ -83,7 +83,7 @@ session :: ( MonadIO m
         => S.SocketType                       -- ^ I2P socket type to create
         -> (Network.Socket, Network.SockAddr) -- ^ Our connection with SAM bridge
         -> m (String, D.Destination)          -- ^ Our session id and our private destination key
-session = sessionWith Nothing Nothing
+session = sessionWith Nothing Nothing Nothing
 
 -- | Create a session, and explicitly provide all parameters to use
 sessionWith :: ( MonadIO m
@@ -92,6 +92,9 @@ sessionWith :: ( MonadIO m
                                                   --   unique session id is created.
             -> Maybe D.Destination                -- ^ Destination to use. If none is provided, a new
                                                   --   unique destination will be created.
+            -> Maybe D.SignatureType              -- ^ If a new destination is to be created, provides
+                                                  --   the signature type to use. If none is provided,
+                                                  --   the I2P default will be used.
             -> S.SocketType                       -- ^ I2P socket type to create
             -> (Network.Socket, Network.SockAddr) -- ^ Our connection with SAM bridge
             -> m (String, D.Destination)          -- ^ Our session id and our private destination key
@@ -99,28 +102,41 @@ sessionWith :: ( MonadIO m
 -- Specialization where no session is was provided. In this case, we create a
 -- new session id based on a UUID, and enter recursion with the fresh session id
 -- provided.
-sessionWith Nothing destination socketType pair = do
+sessionWith Nothing destination signatureType socketType pair = do
   uuid <- liftIO Uuid.nextRandom
 
   D.log
     ("created session id: " ++ show uuid)
-    sessionWith (Just (Uuid.toString uuid)) destination socketType pair
+    sessionWith (Just (Uuid.toString uuid)) destination signatureType socketType pair
 
-sessionWith (Just sessionId) destination socketType (s, _) =
+sessionWith (Just sessionId) destination signatureType socketType (s, _) =
   let socketTypeToString :: S.SocketType -> BS.ByteString
       socketTypeToString S.VirtualStream     = "STREAM"
       socketTypeToString S.DatagramRepliable = "DATAGRAM"
       socketTypeToString S.DatagramAnonymous = "RAW"
 
-      destinationToString :: Maybe D.Destination -> BS.ByteString
-      destinationToString Nothing = BS8.pack "TRANSIENT SIGNATURE_TYPE=EDDSA_SHA512_ED25519"
-      destinationToString (Just (D.Destination d)) = d
+      destinationToString :: Maybe D.Destination -> Maybe D.SignatureType -> BS.ByteString
+      destinationToString (Just (D.Destination d)) _          = d
+
+      destinationToString Nothing Nothing                     = "TRANSIENT"
+      destinationToString Nothing (Just D.DsaSha1)            = "TRANSIENT SIGNATURE_TYPE=DSA_SHA1"
+
+      destinationToString Nothing (Just D.EcdsaSha256P256)    = "TRANSIENT SIGNATURE_TYPE=ECDSA_SHA256_P256"
+      destinationToString Nothing (Just D.EcdsaSha384P384)    = "TRANSIENT SIGNATURE_TYPE=ECDSA_SHA384_P384"
+      destinationToString Nothing (Just D.EcdsaSha512P521)    = "TRANSIENT SIGNATURE_TYPE=ECDSA_SHA512_P521"
+
+      destinationToString Nothing (Just D.RsaSha2562048)      = "TRANSIENT SIGNATURE_TYPE=RSA_SHA256_2048"
+      destinationToString Nothing (Just D.RsaSha3843072)      = "TRANSIENT SIGNATURE_TYPE=RSA_SHA384_3072"
+      destinationToString Nothing (Just D.RsaSha5124096)      = "TRANSIENT SIGNATURE_TYPE=RSA_SHA512_4096"
+
+      destinationToString Nothing (Just D.EdDsaSha512Ed25519) = "TRANSIENT SIGNATURE_TYPE=EdDSA_SHA512_Ed25519"
+
 
       versionString :: String -> BS.ByteString
       versionString sid =
         BS.concat [ "SESSION CREATE STYLE=", socketTypeToString socketType, " "
                   , "ID=", BS8.pack sid, " "
-                  , "DESTINATION=", destinationToString destination
+                  , "DESTINATION=", destinationToString destination signatureType
                   , "\n"]
 
   in do

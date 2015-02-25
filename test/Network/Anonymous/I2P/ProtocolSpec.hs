@@ -101,6 +101,24 @@ spec = do
          _ <- performTest S.DatagramAnonymous
          return ()
 
+    it "should be able to create new destinations with all signature types" $
+      let createSession signatureType pair = version pair >> sessionWith Nothing Nothing (Just signatureType) S.VirtualStream pair
+
+          performTest signatureType = connect "127.0.0.1" "7656" (createSession signatureType)
+
+          sigTypes =  [ D.DsaSha1
+                      , D.EcdsaSha256P256
+                      , D.EcdsaSha384P384
+                      , D.EcdsaSha512P521
+                      , D.RsaSha2562048
+                      , D.RsaSha3843072
+                      , D.RsaSha5124096
+                      , D.EdDsaSha512Ed25519 ]
+
+
+      -- If something fails here, an exception will be thrown
+      in mapM performTest sigTypes >> return ()
+
     it "should throw a protocol error when creating a session twice" $
       let createSession     socketType pair           = session socketType pair
 
@@ -122,20 +140,18 @@ spec = do
 
           phase2 sessionId1 pair2 = do
             _ <- version pair2
-            sessionWith (Just sessionId1) Nothing socketType pair2 `shouldThrow` U.isI2PError E.duplicatedSessionIdErrorType
+            sessionWith (Just sessionId1) Nothing Nothing socketType pair2 `shouldThrow` U.isI2PError E.duplicatedSessionIdErrorType
 
       in connect "127.0.0.1" "7656" phase1
 
-
     it "should throw an error when providing an invalid destination key" $
-      let createSessionWith destinationId socketType pair = sessionWith Nothing destinationId socketType pair
+      let createSessionWith destinationId socketType pair = sessionWith Nothing destinationId Nothing socketType pair
 
           performTest socketType pair = do
             _ <- version pair
             createSessionWith (Just (D.Destination "123invalid")) socketType pair `shouldThrow` U.isI2PError E.invalidKeyErrorType
 
       in connect "127.0.0.1" "7656" (performTest S.VirtualStream)
-
 
     it "should throw a protocol error when creating a session with a duplicated destination key" $
       let socketType = S.VirtualStream
@@ -147,6 +163,6 @@ spec = do
 
           phase2 destination1 pair2 = do
             _ <- version pair2
-            sessionWith Nothing (Just destination1) socketType pair2 `shouldThrow` U.isI2PError E.duplicatedDestinationErrorType
+            sessionWith Nothing (Just destination1) Nothing socketType pair2 `shouldThrow` U.isI2PError E.duplicatedDestinationErrorType
 
       in connect "127.0.0.1" "7656" phase1

@@ -22,3 +22,30 @@ import qualified Data.ByteString as BS
 data Destination = Destination {
   base64 :: BS.ByteString -- ^ Base64 representation of the destination
   } deriving (Eq, Show)
+
+-- | Supported signature types by I2P, as defined at
+--   <https://geti2p.net/en/docs/spec/common-structures#type_Signature I2P Common Structure Documentation>
+data SignatureType =
+  -- | DSA_SHA1 -- the default, and supported by all I2P versions
+  DsaSha1            |
+
+  -- | ECDSA_SHA256_P256, supported by version 0.9.12 and up
+  EcdsaSha256P256    |
+
+  -- | ECDSA_SHA384_P384, supported by version 0.9.12 and up
+  EcdsaSha384P384    |
+
+  -- | ECDSA_SHA512_P521, supported by version 0.9.12 and up
+  EcdsaSha512P521    |
+
+  -- | RSA_SHA256_2048, supported by version 0.9.12 and up
+  RsaSha2562048      |
+
+  -- | RSA_SHA384_3072, supported by version 0.9.12 and up
+  RsaSha3843072      |
+
+  -- | RSA_SHA512_4096, supported by version 0.9.12 and up
+  RsaSha5124096      |
+
+  -- | EdDSA_SHA512_Ed25519, supported by version 0.9.15 and up
+  EdDsaSha512Ed25519
