@@ -18,6 +18,8 @@ data I2PException = I2PError {
   i2peType :: I2PErrorType -- ^ Our error type
   } deriving (Show, Eq, Typeable)
 
+-- | Derives our I2P exception from the standard exception, which opens it
+--   up to being used with all the regular try/catch/bracket/etc functions.
 instance Exception I2PException
 
 -- | An abstract type that contains a value for each variant of 'I2PError'
