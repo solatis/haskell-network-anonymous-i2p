@@ -24,7 +24,6 @@ data I2PErrorType
   | DuplicatedDestination
   | InvalidKey
   | ProtocolError
-  | UnknownError
   deriving (Show, Eq)
 
 mkI2PError :: I2PErrorType -> I2PError
@@ -49,10 +48,6 @@ invalidKeyErrorType = InvalidKey
 -- | I2P error when communication with the SAM bridge fails
 protocolErrorType :: I2PErrorType
 protocolErrorType = ProtocolError
-
--- | I2P error when error is unknown
-unknownErrorType :: I2PErrorType
-unknownErrorType = UnknownError
 
 -- | Raise an I2P Exception in the IO monad
 i2pException :: (MonadIO m)
