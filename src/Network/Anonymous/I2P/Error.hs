@@ -9,10 +9,13 @@ import Control.Monad.IO.Class
 import Control.Exception (throwIO)
 import Control.Exception.Base (Exception)
 
+-- | Error type used
 type I2PError = I2PException
 
+-- | Exception that we use to throw. It is the only type of exception
+--   we throw, and the type of error is embedded within the exception.
 data I2PException = I2PError {
-  i2peType :: I2PErrorType
+  i2peType :: I2PErrorType -- ^ Our error type
   } deriving (Show, Eq, Typeable)
 
 instance Exception I2PException
@@ -26,6 +29,7 @@ data I2PErrorType
   | ProtocolError
   deriving (Show, Eq)
 
+-- | Generates new I2PException
 mkI2PError :: I2PErrorType -> I2PError
 mkI2PError t = I2PError { i2peType = t }
 

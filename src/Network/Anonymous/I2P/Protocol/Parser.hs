@@ -15,12 +15,14 @@ import           Data.Attoparsec.ByteString.Char8        as Atto8
 import qualified Data.ByteString                         as BS
 import qualified Network.Anonymous.I2P.Types.Destination as D
 
+-- | Result emitted by 'version'
 data VersionResult =
   VersionResultOk [Integer] |
   VersionResultNone         |
   VersionResultError String
   deriving (Show, Eq)
 
+-- | Result emitted by 'session'
 data SessionResult =
   SessionResultOk D.Destination |
   SessionResultDuplicatedId     |
@@ -37,6 +39,7 @@ quotedMessage = string "\"" *> manyTill anyChar (string "\"")
 endOfLineMessage :: Parser BS.ByteString
 endOfLineMessage = Atto.takeTill (Atto.inClass "\r\n")
 
+-- | Parses a HELLO VERSION response
 version :: Parser VersionResult
 version =
   let parseResultNone :: Parser VersionResult
@@ -64,6 +67,7 @@ version =
 
   in parseResult
 
+-- | Parses a SESSION CREATE response
 session :: Parser SessionResult
 session =
   let parseResultInvalidKey :: Parser SessionResult

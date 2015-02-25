@@ -44,6 +44,8 @@ version :: ( MonadIO m
                                               --   example, [3,1] means version 3.1
 version = versionWithConstraint ([3,1], [3,1])
 
+-- | Performs same handshake as 'version', but with an explicit min/max supported
+--   version provided.
 versionWithConstraint :: ( MonadIO m
                          , MonadMask m)
                       => ([Integer], [Integer])             -- ^ Min/max version we want to agree on, stored as a list
