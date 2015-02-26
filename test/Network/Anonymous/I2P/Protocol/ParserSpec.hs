@@ -31,7 +31,7 @@ spec = do
       in do
         msg ~> version `shouldParse` (VersionResultError "fooMessage")
 
-  describe "parsing a session response" $ do
+  describe "parsing a create session response" $ do
     it "should succeed when providing a correct command" $
       let msg :: BS.ByteString
 
@@ -63,3 +63,22 @@ spec = do
           msg = "SESSION STATUS RESULT=I2P_ERROR MESSAGE=\"barMessage\"\n"
 
       in msg ~> createSession `shouldParse` (SessionResultError "barMessage")
+
+  describe "parsing an accept stream response" $ do
+    it "should succeed when providing a correct command" $
+      let msg :: BS.ByteString
+          msg = "STREAM STATUS RESULT=OK\n"
+
+      in msg ~> acceptStream `shouldParse` (AcceptStreamResultOk)
+
+    it "should succeed when providing an invalid id" $
+      let msg :: BS.ByteString
+          msg = "STREAM STATUS RESULT=INVALID_ID\n"
+
+      in msg ~> acceptStream `shouldParse` (AcceptStreamResultInvalidId)
+
+    it "should succeed when providing an error message" $
+      let msg :: BS.ByteString
+          msg = "STREAM STATUS RESULT=I2P_ERROR MESSAGE=\"wombat\"\n"
+
+      in msg ~> acceptStream `shouldParse` (AcceptStreamResultError "wombat")

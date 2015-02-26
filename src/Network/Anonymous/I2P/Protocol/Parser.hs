@@ -22,13 +22,20 @@ data VersionResult =
   VersionResultError String
   deriving (Show, Eq)
 
--- | Result emitted by 'session'
+-- | Result emitted by 'createSession'
 data SessionResult =
   SessionResultOk D.Destination |
   SessionResultDuplicatedId     |
   SessionResultDuplicatedDest   |
   SessionResultInvalidKey       |
   SessionResultError String
+  deriving (Show, Eq)
+
+-- | Result emitted by 'acceptStream'
+data AcceptStreamResult =
+  AcceptStreamResultOk           |
+  AcceptStreamResultInvalidId    |
+  AcceptStreamResultError String
   deriving (Show, Eq)
 
 -- | A parser that reads a quoted message
@@ -103,6 +110,35 @@ createSession =
           <|> parseResultDuplicatedId
           <|> parseResultDuplicatedDest
           <|> parseResultOk
+          <|> parseResultError )
+        <* endOfLine
+
+  in parseResult
+
+-- | Parses a STREAM ACCEPT response
+acceptStream :: Parser AcceptStreamResult
+acceptStream =
+  let parseResultOk :: Parser AcceptStreamResult
+      parseResultOk =
+        void (
+          string "OK") *> pure AcceptStreamResultOk
+
+      parseResultInvalidId :: Parser AcceptStreamResult
+      parseResultInvalidId =
+        void (
+          string "INVALID_ID") *> pure AcceptStreamResultInvalidId
+
+      parseResultError :: Parser AcceptStreamResult
+      parseResultError =
+        AcceptStreamResultError <$> (
+          string "I2P_ERROR MESSAGE=" *> quotedMessage)
+
+      parseResult :: Parser AcceptStreamResult
+      parseResult =
+        "STREAM STATUS RESULT=" *>
+
+        (     parseResultOk
+          <|> parseResultInvalidId
           <|> parseResultError )
         <* endOfLine
 
