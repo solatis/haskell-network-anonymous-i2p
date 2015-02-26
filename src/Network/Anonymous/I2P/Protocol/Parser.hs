@@ -23,12 +23,12 @@ data VersionResult =
   deriving (Show, Eq)
 
 -- | Result emitted by 'createSession'
-data SessionResult =
-  SessionResultOk D.Destination |
-  SessionResultDuplicatedId     |
-  SessionResultDuplicatedDest   |
-  SessionResultInvalidKey       |
-  SessionResultError String
+data CreateSessionResult =
+  CreateSessionResultOk D.Destination |
+  CreateSessionResultDuplicatedId     |
+  CreateSessionResultDuplicatedDest   |
+  CreateSessionResultInvalidKey       |
+  CreateSessionResultError String
   deriving (Show, Eq)
 
 -- | Result emitted by 'acceptStream'
@@ -75,34 +75,34 @@ version =
   in parseResult
 
 -- | Parses a SESSION CREATE response
-createSession :: Parser SessionResult
+createSession :: Parser CreateSessionResult
 createSession =
-  let parseResultInvalidKey :: Parser SessionResult
+  let parseResultInvalidKey :: Parser CreateSessionResult
       parseResultInvalidKey =
         void (
-          string "INVALID_KEY") *> pure SessionResultInvalidKey
+          string "INVALID_KEY") *> pure CreateSessionResultInvalidKey
 
-      parseResultDuplicatedId :: Parser SessionResult
+      parseResultDuplicatedId :: Parser CreateSessionResult
       parseResultDuplicatedId =
         void (
-          string "DUPLICATED_ID") *> pure SessionResultDuplicatedId
+          string "DUPLICATED_ID") *> pure CreateSessionResultDuplicatedId
 
-      parseResultDuplicatedDest :: Parser SessionResult
+      parseResultDuplicatedDest :: Parser CreateSessionResult
       parseResultDuplicatedDest =
         void (
-          string "DUPLICATED_DEST") *> pure SessionResultDuplicatedDest
+          string "DUPLICATED_DEST") *> pure CreateSessionResultDuplicatedDest
 
-      parseResultOk :: Parser SessionResult
+      parseResultOk :: Parser CreateSessionResult
       parseResultOk =
-        (SessionResultOk . D.Destination) <$> (
+        (CreateSessionResultOk . D.Destination) <$> (
           string "OK DESTINATION=" *> endOfLineMessage)
 
-      parseResultError :: Parser SessionResult
+      parseResultError :: Parser CreateSessionResult
       parseResultError =
-        SessionResultError <$> (
+        CreateSessionResultError <$> (
           string "I2P_ERROR MESSAGE=" *> quotedMessage)
 
-      parseResult :: Parser SessionResult
+      parseResult :: Parser CreateSessionResult
       parseResult =
         "SESSION STATUS RESULT=" *>
 

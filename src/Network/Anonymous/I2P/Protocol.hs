@@ -144,11 +144,11 @@ createSessionWith (Just sessionId) destination signatureType socketType (s, _) =
     res <- NA.parseOne s (Atto.parse Parser.createSession)
 
     case res of
-     Parser.SessionResultOk d           -> D.log ("got destination: " ++ show d)  (return (sessionId, d))
-     Parser.SessionResultDuplicatedId   -> D.log "duplicated session id"          (E.i2pError (E.mkI2PError E.duplicatedSessionIdErrorType))
-     Parser.SessionResultDuplicatedDest -> D.log "duplicated destination"         (E.i2pError (E.mkI2PError E.duplicatedDestinationErrorType))
-     Parser.SessionResultInvalidKey     -> D.log "invalid destination id"         (E.i2pError (E.mkI2PError E.invalidKeyErrorType))
-     Parser.SessionResultError msg      -> D.log ("protocol error: " ++ show msg) (E.i2pError (E.mkI2PError E.protocolErrorType))
+     Parser.CreateSessionResultOk d           -> D.log ("got destination: " ++ show d)  (return (sessionId, d))
+     Parser.CreateSessionResultDuplicatedId   -> D.log "duplicated session id"          (E.i2pError (E.mkI2PError E.duplicatedSessionIdErrorType))
+     Parser.CreateSessionResultDuplicatedDest -> D.log "duplicated destination"         (E.i2pError (E.mkI2PError E.duplicatedDestinationErrorType))
+     Parser.CreateSessionResultInvalidKey     -> D.log "invalid destination id"         (E.i2pError (E.mkI2PError E.invalidKeyErrorType))
+     Parser.CreateSessionResultError msg      -> D.log ("protocol error: " ++ show msg) (E.i2pError (E.mkI2PError E.protocolErrorType))
 
 -- | For VirtualStream sockets, accepts one new connection
 accept :: ( MonadIO m
