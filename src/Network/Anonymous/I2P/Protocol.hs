@@ -6,8 +6,8 @@
 module Network.Anonymous.I2P.Protocol ( NST.connect
                                       , version
                                       , versionWithConstraint
-                                      , session
-                                      , sessionWith) where
+                                      , createSession
+                                      , createSessionWith) where
 
 import           Control.Monad.Catch
 import           Control.Monad.IO.Class
@@ -78,38 +78,38 @@ versionWithConstraint (minV, maxV) (s, _) =
      Parser.VersionResultError msg  -> D.log ("protocol error: " ++ show msg) (E.i2pError (E.mkI2PError E.protocolErrorType))
 
 -- | Create a session with default parameters provided.
-session :: ( MonadIO m
+createSession :: ( MonadIO m
            , MonadMask m)
         => S.SocketType                       -- ^ I2P socket type to create
         -> (Network.Socket, Network.SockAddr) -- ^ Our connection with SAM bridge
         -> m (String, D.Destination)          -- ^ Our session id and our private destination key
-session = sessionWith Nothing Nothing Nothing
+createSession = createSessionWith Nothing Nothing Nothing
 
 -- | Create a session, and explicitly provide all parameters to use
-sessionWith :: ( MonadIO m
-               , MonadMask m)
-            => Maybe String                       -- ^ Session id to use. If none is provided, a new
-                                                  --   unique session id is created.
-            -> Maybe D.Destination                -- ^ Destination to use. If none is provided, a new
-                                                  --   unique destination will be created.
-            -> Maybe D.SignatureType              -- ^ If a new destination is to be created, provides
-                                                  --   the signature type to use. If none is provided,
-                                                  --   the I2P default will be used.
-            -> S.SocketType                       -- ^ I2P socket type to create
-            -> (Network.Socket, Network.SockAddr) -- ^ Our connection with SAM bridge
-            -> m (String, D.Destination)          -- ^ Our session id and our private destination key
+createSessionWith :: ( MonadIO m
+                     , MonadMask m)
+                  => Maybe String                       -- ^ Session id to use. If none is provided, a new
+                                                        --   unique session id is created.
+                  -> Maybe D.Destination                -- ^ Destination to use. If none is provided, a new
+                                                        --   unique destination will be created.
+                  -> Maybe D.SignatureType              -- ^ If a new destination is to be created, provides
+                                                        --   the signature type to use. If none is provided,
+                                                        --   the I2P default will be used.
+                  -> S.SocketType                       -- ^ I2P socket type to create
+                  -> (Network.Socket, Network.SockAddr) -- ^ Our connection with SAM bridge
+                  -> m (String, D.Destination)          -- ^ Our session id and our private destination key
 
 -- Specialization where no session is was provided. In this case, we create a
 -- new session id based on a UUID, and enter recursion with the fresh session id
 -- provided.
-sessionWith Nothing destination signatureType socketType pair = do
+createSessionWith Nothing destination signatureType socketType pair = do
   uuid <- liftIO Uuid.nextRandom
 
   D.log
     ("created session id: " ++ show uuid)
-    sessionWith (Just (Uuid.toString uuid)) destination signatureType socketType pair
+    createSessionWith (Just (Uuid.toString uuid)) destination signatureType socketType pair
 
-sessionWith (Just sessionId) destination signatureType socketType (s, _) =
+createSessionWith (Just sessionId) destination signatureType socketType (s, _) =
   let socketTypeToString :: S.SocketType -> BS.ByteString
       socketTypeToString S.VirtualStream     = "STREAM"
       socketTypeToString S.DatagramRepliable = "DATAGRAM"
@@ -160,7 +160,7 @@ accept sessionId (sock, _) =
   let acceptString :: String -> BS.ByteString
       acceptString s =
         BS.concat [ "STREAM ACCEPT "
-                  , "ID=", BS8.pack sid, " "
+                  , "ID=", BS8.pack s, " "
                   , "SILENT=FALSE"]
 
   in do
