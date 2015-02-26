@@ -131,7 +131,6 @@ sessionWith (Just sessionId) destination signatureType socketType (s, _) =
 
       destinationToString Nothing (Just D.EdDsaSha512Ed25519) = "TRANSIENT SIGNATURE_TYPE=EdDSA_SHA512_Ed25519"
 
-
       versionString :: String -> BS.ByteString
       versionString sid =
         BS.concat [ "SESSION CREATE STYLE=", socketTypeToString socketType, " "
@@ -150,3 +149,28 @@ sessionWith (Just sessionId) destination signatureType socketType (s, _) =
      Parser.SessionResultDuplicatedDest -> D.log "duplicated destination"         (E.i2pError (E.mkI2PError E.duplicatedDestinationErrorType))
      Parser.SessionResultInvalidKey     -> D.log "invalid destination id"         (E.i2pError (E.mkI2PError E.invalidKeyErrorType))
      Parser.SessionResultError msg      -> D.log ("protocol error: " ++ show msg) (E.i2pError (E.mkI2PError E.protocolErrorType))
+
+-- | For VirtualStream sockets, accepts one new connection
+accept :: ( MonadIO m
+          , MonadMask m)
+       => String                             -- ^ Our session id
+       -> (Network.Socket, Network.SockAddr) -- ^ Our connection with SAM bridge
+       -> m ()                               -- ^ Returns as soon as connection has been accepted
+accept sessionId (sock, _) =
+  let acceptString :: String -> BS.ByteString
+      acceptString s =
+        BS.concat [ "STREAM ACCEPT "
+                  , "ID=", BS8.pack sid, " "
+                  , "SILENT=FALSE"]
+
+  in do
+    liftIO $ putStrLn ("Sending acceptString: " ++ show (acceptString sessionId))
+    liftIO $ Network.sendAll sock (acceptString sessionId)
+
+-- | For VirtualStream sockets, establishes connection with a remote
+connect :: ( MonadIO m
+           , MonadMask m)
+        => String                             -- ^ Our session id
+        -> (Network.Socket, Network.SockAddr) -- ^ Our connection with SAM bridge
+        -> m ()                               -- ^ Returning state
+connect sessionId (sock, _) = undefined
