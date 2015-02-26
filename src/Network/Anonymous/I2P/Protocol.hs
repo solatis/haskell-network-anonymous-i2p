@@ -7,7 +7,8 @@ module Network.Anonymous.I2P.Protocol ( NST.connect
                                       , version
                                       , versionWithConstraint
                                       , createSession
-                                      , createSessionWith) where
+                                      , createSessionWith
+                                      , acceptStream) where
 
 import           Control.Monad.Catch
 import           Control.Monad.IO.Class
@@ -151,21 +152,28 @@ createSessionWith (Just sessionId) destination signatureType socketType (s, _) =
      Parser.CreateSessionResultError msg      -> D.log ("protocol error: " ++ show msg) (E.i2pError (E.mkI2PError E.protocolErrorType))
 
 -- | For VirtualStream sockets, accepts one new connection
-accept :: ( MonadIO m
-          , MonadMask m)
-       => String                             -- ^ Our session id
-       -> (Network.Socket, Network.SockAddr) -- ^ Our connection with SAM bridge
-       -> m ()                               -- ^ Returns as soon as connection has been accepted
-accept sessionId (sock, _) =
+acceptStream :: ( MonadIO m
+                , MonadMask m)
+             => String                             -- ^ Our session id
+             -> (Network.Socket, Network.SockAddr) -- ^ Our connection with SAM bridge
+             -> m ()                               -- ^ Returns as soon as connection has been accepted
+acceptStream sessionId (sock, _) =
   let acceptString :: String -> BS.ByteString
       acceptString s =
         BS.concat [ "STREAM ACCEPT "
                   , "ID=", BS8.pack s, " "
-                  , "SILENT=FALSE"]
+                  , "SILENT=FALSE"
+                  , "\n"]
 
   in do
     liftIO $ putStrLn ("Sending acceptString: " ++ show (acceptString sessionId))
     liftIO $ Network.sendAll sock (acceptString sessionId)
+    res <- NA.parseOne sock (Atto.parse Parser.acceptStream)
+
+    case res of
+     Parser.AcceptStreamResultOk            -> D.log "now accepting one stream through SAM" (return ())
+     Parser.AcceptStreamResultInvalidId msg -> D.log ("invalid session id: " ++ show sessionId ++ ", msg: " ++ show msg) (E.i2pError (E.mkI2PError E.invalidIdErrorType))
+     Parser.AcceptStreamResultError msg     -> D.log ("protocol error: " ++ show msg) (E.i2pError (E.mkI2PError E.protocolErrorType))
 
 -- | For VirtualStream sockets, establishes connection with a remote
 connect :: ( MonadIO m

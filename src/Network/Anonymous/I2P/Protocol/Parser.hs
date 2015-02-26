@@ -33,8 +33,8 @@ data CreateSessionResult =
 
 -- | Result emitted by 'acceptStream'
 data AcceptStreamResult =
-  AcceptStreamResultOk           |
-  AcceptStreamResultInvalidId    |
+  AcceptStreamResultOk               |
+  AcceptStreamResultInvalidId String |
   AcceptStreamResultError String
   deriving (Show, Eq)
 
@@ -123,15 +123,15 @@ acceptStream =
         void (
           string "OK") *> pure AcceptStreamResultOk
 
-      parseResultInvalidId :: Parser AcceptStreamResult
-      parseResultInvalidId =
-        void (
-          string "INVALID_ID") *> pure AcceptStreamResultInvalidId
-
       parseResultError :: Parser AcceptStreamResult
       parseResultError =
         AcceptStreamResultError <$> (
           string "I2P_ERROR MESSAGE=" *> quotedMessage)
+
+      parseResultInvalidId :: Parser AcceptStreamResult
+      parseResultInvalidId =
+        AcceptStreamResultInvalidId <$> (
+          string "INVALID_ID MESSAGE=" *> quotedMessage)
 
       parseResult :: Parser AcceptStreamResult
       parseResult =

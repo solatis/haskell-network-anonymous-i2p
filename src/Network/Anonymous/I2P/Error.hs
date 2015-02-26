@@ -28,6 +28,7 @@ data I2PErrorType
   | DuplicatedSessionId
   | DuplicatedDestination
   | InvalidKey
+  | InvalidId
   | ProtocolError
   deriving (Show, Eq)
 
@@ -50,6 +51,10 @@ duplicatedDestinationErrorType = DuplicatedDestination
 -- | I2P error when an invalid (destination) key is used
 invalidKeyErrorType :: I2PErrorType
 invalidKeyErrorType = InvalidKey
+
+-- | I2P error when an invalid (session) id is used
+invalidIdErrorType :: I2PErrorType
+invalidIdErrorType = InvalidId
 
 -- | I2P error when communication with the SAM bridge fails
 protocolErrorType :: I2PErrorType
