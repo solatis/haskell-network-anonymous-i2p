@@ -38,6 +38,16 @@ data AcceptStreamResult =
   AcceptStreamResultError String
   deriving (Show, Eq)
 
+-- | Result emitted by 'connectStream'
+data ConnectStreamResult =
+  ConnectStreamResultOk                |
+  ConnectStreamResultTimeout           |
+  ConnectStreamResultUnreachable       |
+  ConnectStreamResultInvalidId         |
+  ConnectStreamResultInvalidKey        |
+  ConnectStreamResultError String
+  deriving (Show, Eq)
+
 -- | A parser that reads a quoted message
 quotedMessage :: Parser String
 quotedMessage = string "\"" *> manyTill anyChar (string "\"")
@@ -138,8 +148,55 @@ acceptStream =
         "STREAM STATUS RESULT=" *>
 
         (     parseResultOk
+          <|> parseResultError
+          <|> parseResultInvalidId)
+        <* endOfLine
+
+  in parseResult
+
+-- | Parses a STREAM CONNECT response
+connectStream :: Parser ConnectStreamResult
+connectStream =
+  let parseResultOk :: Parser ConnectStreamResult
+      parseResultOk =
+        void (
+          string "OK") *> pure ConnectStreamResultOk
+
+      parseResultTimeout :: Parser ConnectStreamResult
+      parseResultTimeout =
+        void (
+          string "TIMEOUT") *> pure ConnectStreamResultTimeout
+
+      parseResultInvalidId :: Parser ConnectStreamResult
+      parseResultInvalidId =
+        void (
+          string "INVALID_ID") *> pure ConnectStreamResultInvalidId
+
+      parseResultInvalidKey :: Parser ConnectStreamResult
+      parseResultInvalidKey =
+        void (
+          string "INVALID_KEY") *> pure ConnectStreamResultInvalidKey
+
+      parseResultUnreachable :: Parser ConnectStreamResult
+      parseResultUnreachable =
+        void (
+          string "CANT_REACH_PEER") *> pure ConnectStreamResultUnreachable
+
+      parseResultError :: Parser ConnectStreamResult
+      parseResultError =
+        ConnectStreamResultError <$> (
+          string "I2P_ERROR MESSAGE=" *> quotedMessage)
+
+      parseResult :: Parser ConnectStreamResult
+      parseResult =
+        "STREAM STATUS RESULT=" *>
+
+        (     parseResultOk
+          <|> parseResultTimeout
           <|> parseResultInvalidId
-          <|> parseResultError )
+          <|> parseResultInvalidKey
+          <|> parseResultUnreachable
+          <|> parseResultError)
         <* endOfLine
 
   in parseResult

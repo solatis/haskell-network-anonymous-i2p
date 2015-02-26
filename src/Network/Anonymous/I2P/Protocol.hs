@@ -176,9 +176,9 @@ acceptStream sessionId (sock, _) =
      Parser.AcceptStreamResultError msg     -> D.log ("protocol error: " ++ show msg) (E.i2pError (E.mkI2PError E.protocolErrorType))
 
 -- | For VirtualStream sockets, establishes connection with a remote
-connect :: ( MonadIO m
-           , MonadMask m)
-        => String                             -- ^ Our session id
-        -> (Network.Socket, Network.SockAddr) -- ^ Our connection with SAM bridge
-        -> m ()                               -- ^ Returning state
-connect sessionId (sock, _) = undefined
+connectStream :: ( MonadIO m
+                 , MonadMask m)
+              => String                             -- ^ Our session id
+              -> (Network.Socket, Network.SockAddr) -- ^ Our connection with SAM bridge
+              -> m ()                               -- ^ Returning state
+connectStream sessionId (sock, _) = undefined

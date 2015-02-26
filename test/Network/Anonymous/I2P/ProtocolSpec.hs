@@ -189,3 +189,9 @@ spec = do
           performTest socketType = P.connect "127.0.0.1" "7656" (phase1 socketType) `shouldThrow` U.isI2PError E.protocolErrorType
 
       in mapM performTest socketTypes >> return ()
+
+  describe "when connecting to a stream connection" $ do
+    it "should be returning an error when we try to connect before creating a session" $
+      let phase1 pair = P.version pair >> P.acceptStream "nonExistingSessionId" pair
+
+      in P.connect "127.0.0.1" "7656" phase1 `shouldThrow` U.isI2PError E.invalidIdErrorType

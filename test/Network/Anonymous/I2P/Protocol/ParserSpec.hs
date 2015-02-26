@@ -82,3 +82,40 @@ spec = do
           msg = "STREAM STATUS RESULT=I2P_ERROR MESSAGE=\"wombat\"\n"
 
       in msg ~> acceptStream `shouldParse` (AcceptStreamResultError "wombat")
+
+  describe "parsing a connect to stream response" $ do
+    it "should succeed when providing a correct command" $
+      let msg :: BS.ByteString
+          msg = "STREAM STATUS RESULT=OK\n"
+
+      in msg ~> connectStream `shouldParse` (ConnectStreamResultOk)
+
+    it "should succeed when providing an invalid id" $
+      let msg :: BS.ByteString
+          msg = "STREAM STATUS RESULT=INVALID_ID\n"
+
+      in msg ~> connectStream `shouldParse` (ConnectStreamResultInvalidId)
+
+    it "should succeed when providing an invalid key" $
+      let msg :: BS.ByteString
+          msg = "STREAM STATUS RESULT=INVALID_KEY\n"
+
+      in msg ~> connectStream `shouldParse` (ConnectStreamResultInvalidKey)
+
+    it "should succeed when peer cannot be reached" $
+      let msg :: BS.ByteString
+          msg = "STREAM STATUS RESULT=CANT_REACH_PEER\n"
+
+      in msg ~> connectStream `shouldParse` (ConnectStreamResultUnreachable)
+
+    it "should succeed when a timeout occurred" $
+      let msg :: BS.ByteString
+          msg = "STREAM STATUS RESULT=TIMEOUT\n"
+
+      in msg ~> connectStream `shouldParse` (ConnectStreamResultTimeout)
+
+    it "should succeed when providing an error message" $
+      let msg :: BS.ByteString
+          msg = "STREAM STATUS RESULT=I2P_ERROR MESSAGE=\"batwomb\"\n"
+
+      in msg ~> connectStream `shouldParse` (ConnectStreamResultError "batwomb")
