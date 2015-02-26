@@ -68,8 +68,8 @@ version =
   in parseResult
 
 -- | Parses a SESSION CREATE response
-session :: Parser SessionResult
-session =
+createSession :: Parser SessionResult
+createSession =
   let parseResultInvalidKey :: Parser SessionResult
       parseResultInvalidKey =
         void (

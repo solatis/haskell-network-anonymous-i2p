@@ -141,7 +141,7 @@ createSessionWith (Just sessionId) destination signatureType socketType (s, _) =
   in do
     liftIO $ putStrLn ("Sending version string: " ++ show (versionString sessionId))
     liftIO $ Network.sendAll s (versionString sessionId)
-    res <- NA.parseOne s (Atto.parse Parser.session)
+    res <- NA.parseOne s (Atto.parse Parser.createSession)
 
     case res of
      Parser.SessionResultOk d           -> D.log ("got destination: " ++ show d)  (return (sessionId, d))
