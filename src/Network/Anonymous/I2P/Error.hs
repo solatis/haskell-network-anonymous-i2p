@@ -29,6 +29,8 @@ data I2PErrorType
   | DuplicatedDestination
   | InvalidKey
   | InvalidId
+  | Timeout
+  | Unreachable
   | ProtocolError
   deriving (Show, Eq)
 
@@ -55,6 +57,14 @@ invalidKeyErrorType = InvalidKey
 -- | I2P error when an invalid (session) id is used
 invalidIdErrorType :: I2PErrorType
 invalidIdErrorType = InvalidId
+
+-- | I2P error when a timeout has occurred
+timeoutErrorType :: I2PErrorType
+timeoutErrorType = Timeout
+
+-- | I2P error when a host was unreachable
+unreachableErrorType :: I2PErrorType
+unreachableErrorType = Unreachable
 
 -- | I2P error when communication with the SAM bridge fails
 protocolErrorType :: I2PErrorType

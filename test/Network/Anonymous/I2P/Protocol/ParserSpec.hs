@@ -92,9 +92,9 @@ spec = do
 
     it "should succeed when providing an invalid id" $
       let msg :: BS.ByteString
-          msg = "STREAM STATUS RESULT=INVALID_ID\n"
+          msg = "STREAM STATUS RESULT=INVALID_ID MESSAGE=\"batwomb\"\n"
 
-      in msg ~> connectStream `shouldParse` (ConnectStreamResultInvalidId)
+      in msg ~> connectStream `shouldParse` (ConnectStreamResultInvalidId "batwomb")
 
     it "should succeed when providing an invalid key" $
       let msg :: BS.ByteString

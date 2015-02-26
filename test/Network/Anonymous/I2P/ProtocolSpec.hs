@@ -18,7 +18,8 @@ import qualified Network.Anonymous.I2P.Protocol as P     (connect,
                                                           createSessionWith,
                                                           version,
                                                           versionWithConstraint,
-                                                          acceptStream)
+                                                          acceptStream,
+                                                          connectStream)
 import qualified Network.Anonymous.I2P.Types.Destination as D
 import qualified Network.Anonymous.I2P.Types.Socket      as S
 import qualified Network.Anonymous.I2P.Util              as U
@@ -192,6 +193,21 @@ spec = do
 
   describe "when connecting to a stream connection" $ do
     it "should be returning an error when we try to connect before creating a session" $
-      let phase1 pair = P.version pair >> P.acceptStream "nonExistingSessionId" pair
+      let phase1 pair = P.version pair >> P.connectStream "nonExistingSessionId" (D.Destination "123") pair
 
       in P.connect "127.0.0.1" "7656" phase1 `shouldThrow` U.isI2PError E.invalidIdErrorType
+
+    it "should be returning an error when we try to connect with a stream using an invalid sockettype" $
+      let socketTypes = [ S.DatagramRepliable
+                        , S.DatagramAnonymous ]
+
+          phase2 sessionId pair = P.version pair >> P.connectStream sessionId (D.Destination "123") pair
+
+          phase1 socketType pair = do
+            (sessionId, _) <- P.version pair >> P.createSession socketType pair
+
+            P.connect "127.0.0.1" "7656" (phase2 sessionId)
+
+          performTest socketType = P.connect "127.0.0.1" "7656" (phase1 socketType) `shouldThrow` U.isI2PError E.protocolErrorType
+
+      in mapM performTest socketTypes >> return ()

@@ -8,7 +8,8 @@ module Network.Anonymous.I2P.Protocol ( NST.connect
                                       , versionWithConstraint
                                       , createSession
                                       , createSessionWith
-                                      , acceptStream) where
+                                      , acceptStream
+                                      , connectStream) where
 
 import           Control.Monad.Catch
 import           Control.Monad.IO.Class
@@ -179,6 +180,27 @@ acceptStream sessionId (sock, _) =
 connectStream :: ( MonadIO m
                  , MonadMask m)
               => String                             -- ^ Our session id
+              -> D.Destination                      -- ^ Destination we wish to connect to
               -> (Network.Socket, Network.SockAddr) -- ^ Our connection with SAM bridge
               -> m ()                               -- ^ Returning state
-connectStream sessionId (sock, _) = undefined
+connectStream sessionId (D.Destination destination) (sock, _) =
+  let connectString :: String -> BS.ByteString
+      connectString s =
+        BS.concat [ "STREAM CONNECT "
+                  , "ID=", BS8.pack s, " "
+                  , "DESTINATION=", destination, " "
+                  , "SILENT=FALSE"
+                  , "\n"]
+
+  in do
+    liftIO $ putStrLn ("Sending connectString: " ++ show (connectString sessionId))
+    liftIO $ Network.sendAll sock (connectString sessionId)
+    res <- NA.parseOne sock (Atto.parse Parser.connectStream)
+
+    case res of
+     Parser.ConnectStreamResultOk            -> D.log "connected to peer!" (return ())
+     Parser.ConnectStreamResultInvalidId msg -> D.log ("invalid session id: " ++ show sessionId ++ ", msg: " ++ show msg) (E.i2pError (E.mkI2PError E.invalidIdErrorType))
+     Parser.ConnectStreamResultInvalidKey    -> D.log ("invalid destination key: " ++ show destination) (E.i2pError (E.mkI2PError E.invalidKeyErrorType))
+     Parser.ConnectStreamResultTimeout       -> D.log ("timeout occured while connecting to destination: " ++ show destination) (E.i2pError (E.mkI2PError E.timeoutErrorType))
+     Parser.ConnectStreamResultUnreachable   -> D.log ("destination host unreachable: " ++ show destination) (E.i2pError (E.mkI2PError E.unreachableErrorType))
+     Parser.ConnectStreamResultError msg     -> D.log ("protocol error: " ++ show msg) (E.i2pError (E.mkI2PError E.protocolErrorType))

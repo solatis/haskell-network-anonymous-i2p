@@ -43,7 +43,7 @@ data ConnectStreamResult =
   ConnectStreamResultOk                |
   ConnectStreamResultTimeout           |
   ConnectStreamResultUnreachable       |
-  ConnectStreamResultInvalidId         |
+  ConnectStreamResultInvalidId String  |
   ConnectStreamResultInvalidKey        |
   ConnectStreamResultError String
   deriving (Show, Eq)
@@ -167,11 +167,6 @@ connectStream =
         void (
           string "TIMEOUT") *> pure ConnectStreamResultTimeout
 
-      parseResultInvalidId :: Parser ConnectStreamResult
-      parseResultInvalidId =
-        void (
-          string "INVALID_ID") *> pure ConnectStreamResultInvalidId
-
       parseResultInvalidKey :: Parser ConnectStreamResult
       parseResultInvalidKey =
         void (
@@ -187,16 +182,21 @@ connectStream =
         ConnectStreamResultError <$> (
           string "I2P_ERROR MESSAGE=" *> quotedMessage)
 
+      parseResultInvalidId :: Parser ConnectStreamResult
+      parseResultInvalidId =
+        ConnectStreamResultInvalidId <$> (
+          string "INVALID_ID MESSAGE=" *> quotedMessage)
+
       parseResult :: Parser ConnectStreamResult
       parseResult =
         "STREAM STATUS RESULT=" *>
 
         (     parseResultOk
           <|> parseResultTimeout
-          <|> parseResultInvalidId
           <|> parseResultInvalidKey
           <|> parseResultUnreachable
-          <|> parseResultError)
+          <|> parseResultError
+          <|> parseResultInvalidId)
         <* endOfLine
 
   in parseResult
