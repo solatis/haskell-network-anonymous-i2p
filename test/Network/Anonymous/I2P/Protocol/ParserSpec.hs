@@ -4,118 +4,197 @@ module Network.Anonymous.I2P.Protocol.ParserSpec where
 
 import qualified Data.ByteString                         as BS
 import           Network.Anonymous.I2P.Protocol.Parser
-import qualified Network.Anonymous.I2P.Types.Destination as D
+import           Network.Anonymous.I2P.Protocol.Parser.Ast (Token (..))
 
 import           Test.Hspec
 import           Test.Hspec.Attoparsec
 
+testDestination :: BS.ByteString
+testDestination = "TedPIHKiYHLLavX~2XgghB-jYBFkwkeztWM5rwyJCO2yR2gT92FcuEahEcTrykTxafzv~4jSQOL5w0EqElqlM~PEFy5~L1pOyGB56-yVd4I-g2fsM9MGKlXNOeQinghKOcfbQx1LVY35-0X5lQSNX-8I~U7Lefukj7gSC5hieWkDS6WiUW6nYw~t061Ra0GXf2qzqFTB4nkQvnCFKaZGtNwOUUpmIbF0OtLyr6TxC7BQKgcg4jyZPS1LaBO6Wev0ZFYiQHLk4S-1LQFBfT13BxN34g-eCInwHlYeMD6NEdiy0BYHhnbBTq02HbgD3FjxW~GBBB-6a~eFABaIiJJ08XR8Mm6KKpNh~gQXut2OLxs55UhEkqk8YmTODrf6yzWzldCdaaAEVMfryO9oniWWCVl1FgLmzUHPGQ3yzvb8OlXiED2hunEfaEg0fg77FRDnYJnDHMF7i5zcUzRGb67rUa1To~H65hR9cFNWTAwX4svC-gRbbvxfi-bthyj-QqeBBQAEAAcAAOEyRS5bFHDrXnWpsjcRvpQj436gS4iCjCzdOohWgeBKC~gfLVY658op9GF6oRJ78ezPN9FBE0JqNrAM75-uL9CIeJd8JUwdldm83RNSVI1ZPZBK-5F3DgIjTsqHDMzQ9xPETiBO2UZZogXSThx9I9uYuAtg296ZhziKjYnl7wi2i3IgQlNbuPW16ajOcNeKnL1OqFipAL9e3k~LEhgBNM3J2hK1M4jO~BQ19TxIXXUfBsHFU4YjwkAOKqOxR1iP8YD~xUSfdtF9mBe6fT8-WW3-n2WgHXiTLW3PJjJuPYM4hNKNmsxsEz5vi~DE6H1pUsPVs2oXFYKZF3EcsKUVaAVWJBarBPuVNYdJgIbgl1~TJeNor8hGQw6rUTJFaZ~jjQ=="
+
 spec :: Spec
 spec = do
-  describe "parsing a hello response" $ do
-    it "should succeed when providing a correct version" $
+  describe "parsing quoted values" $ do
+    it "it should succeed when providing a doublequoted value" $
       let msg :: BS.ByteString
-          msg = "HELLO REPLY RESULT=OK VERSION=3.1\n"
+          msg = "\"foo\""
 
-      in msg ~> version `shouldParse` (VersionResultOk [3,1])
+      in msg ~> quotedValue `shouldParse` "foo"
 
-    it "should succeed when providing version unknown" $
+    it "it should succeed when providing a doublequoted value with spaces" $
       let msg :: BS.ByteString
-          msg = "HELLO REPLY RESULT=NOVERSION\n"
+          msg = "\"foo bar\""
 
-      in msg ~> version `shouldParse` (VersionResultNone)
+      in msg ~> quotedValue `shouldParse` "foo bar"
 
-    it "should succeed when providing an error message" $
+    it "it should succeed when providing a doublequoted value with an escaped quote" $
       let msg :: BS.ByteString
-          msg = "HELLO REPLY RESULT=I2P_ERROR MESSAGE=\"fooMessage\"\n"
+          msg = "\"foo \\\" bar\""
 
-      in do
-        msg ~> version `shouldParse` (VersionResultError "fooMessage")
+      in msg ~> quotedValue `shouldParse` "foo \\\" bar"
 
-  describe "parsing a create session response" $ do
-    it "should succeed when providing a correct command" $
+    it "it should stop after a doublequoted value has been reached" $
       let msg :: BS.ByteString
+          msg = "\"foo bar\" \"baz\""
 
-          -- This has been copied from an actual reply
-          msg = "SESSION STATUS RESULT=OK DESTINATION=TedPIHKiYHLLavX~2XgghB-jYBFkwkeztWM5rwyJCO2yR2gT92FcuEahEcTrykTxafzv~4jSQOL5w0EqElqlM~PEFy5~L1pOyGB56-yVd4I-g2fsM9MGKlXNOeQinghKOcfbQx1LVY35-0X5lQSNX-8I~U7Lefukj7gSC5hieWkDS6WiUW6nYw~t061Ra0GXf2qzqFTB4nkQvnCFKaZGtNwOUUpmIbF0OtLyr6TxC7BQKgcg4jyZPS1LaBO6Wev0ZFYiQHLk4S-1LQFBfT13BxN34g-eCInwHlYeMD6NEdiy0BYHhnbBTq02HbgD3FjxW~GBBB-6a~eFABaIiJJ08XR8Mm6KKpNh~gQXut2OLxs55UhEkqk8YmTODrf6yzWzldCdaaAEVMfryO9oniWWCVl1FgLmzUHPGQ3yzvb8OlXiED2hunEfaEg0fg77FRDnYJnDHMF7i5zcUzRGb67rUa1To~H65hR9cFNWTAwX4svC-gRbbvxfi-bthyj-QqeBBQAEAAcAAOEyRS5bFHDrXnWpsjcRvpQj436gS4iCjCzdOohWgeBKC~gfLVY658op9GF6oRJ78ezPN9FBE0JqNrAM75-uL9CIeJd8JUwdldm83RNSVI1ZPZBK-5F3DgIjTsqHDMzQ9xPETiBO2UZZogXSThx9I9uYuAtg296ZhziKjYnl7wi2i3IgQlNbuPW16ajOcNeKnL1OqFipAL9e3k~LEhgBNM3J2hK1M4jO~BQ19TxIXXUfBsHFU4YjwkAOKqOxR1iP8YD~xUSfdtF9mBe6fT8-WW3-n2WgHXiTLW3PJjJuPYM4hNKNmsxsEz5vi~DE6H1pUsPVs2oXFYKZF3EcsKUVaAVWJBarBPuVNYdJgIbgl1~TJeNor8hGQw6rUTJFaZ~jjQ==\n"
+      in msg ~> quotedValue `shouldParse` "foo bar"
 
-      in msg ~> createSession `shouldParse` (CreateSessionResultOk (D.Destination "TedPIHKiYHLLavX~2XgghB-jYBFkwkeztWM5rwyJCO2yR2gT92FcuEahEcTrykTxafzv~4jSQOL5w0EqElqlM~PEFy5~L1pOyGB56-yVd4I-g2fsM9MGKlXNOeQinghKOcfbQx1LVY35-0X5lQSNX-8I~U7Lefukj7gSC5hieWkDS6WiUW6nYw~t061Ra0GXf2qzqFTB4nkQvnCFKaZGtNwOUUpmIbF0OtLyr6TxC7BQKgcg4jyZPS1LaBO6Wev0ZFYiQHLk4S-1LQFBfT13BxN34g-eCInwHlYeMD6NEdiy0BYHhnbBTq02HbgD3FjxW~GBBB-6a~eFABaIiJJ08XR8Mm6KKpNh~gQXut2OLxs55UhEkqk8YmTODrf6yzWzldCdaaAEVMfryO9oniWWCVl1FgLmzUHPGQ3yzvb8OlXiED2hunEfaEg0fg77FRDnYJnDHMF7i5zcUzRGb67rUa1To~H65hR9cFNWTAwX4svC-gRbbvxfi-bthyj-QqeBBQAEAAcAAOEyRS5bFHDrXnWpsjcRvpQj436gS4iCjCzdOohWgeBKC~gfLVY658op9GF6oRJ78ezPN9FBE0JqNrAM75-uL9CIeJd8JUwdldm83RNSVI1ZPZBK-5F3DgIjTsqHDMzQ9xPETiBO2UZZogXSThx9I9uYuAtg296ZhziKjYnl7wi2i3IgQlNbuPW16ajOcNeKnL1OqFipAL9e3k~LEhgBNM3J2hK1M4jO~BQ19TxIXXUfBsHFU4YjwkAOKqOxR1iP8YD~xUSfdtF9mBe6fT8-WW3-n2WgHXiTLW3PJjJuPYM4hNKNmsxsEz5vi~DE6H1pUsPVs2oXFYKZF3EcsKUVaAVWJBarBPuVNYdJgIbgl1~TJeNor8hGQw6rUTJFaZ~jjQ=="))
-
-    it "should succeed when providing a duplicated id" $
+    it "it should succeed when providing a singlequoted value" $
       let msg :: BS.ByteString
-          msg = "SESSION STATUS RESULT=DUPLICATED_ID\n"
+          msg = "'foo'"
 
-      in msg ~> createSession `shouldParse` (CreateSessionResultDuplicatedId)
+      in msg ~> quotedValue `shouldParse` "foo"
 
-    it "should succeed when providing a duplicated destination" $
+    it "it should succeed when providing a singlequoted value with spaces" $
       let msg :: BS.ByteString
-          msg = "SESSION STATUS RESULT=DUPLICATED_DEST\n"
+          msg = "'foo bar'"
 
-      in msg ~> createSession `shouldParse` (CreateSessionResultDuplicatedDest)
+      in msg ~> quotedValue `shouldParse` "foo bar"
 
-    it "should succeed when providing an invalid key" $
+    it "it should succeed when providing a singlequoted value with an escaped quote" $
       let msg :: BS.ByteString
-          msg = "SESSION STATUS RESULT=INVALID_KEY\n"
+          msg = "'foo \\' bar'"
 
-      in msg ~> createSession `shouldParse` (CreateSessionResultInvalidKey)
+      in msg ~> quotedValue `shouldParse` "foo \\' bar"
 
-    it "should succeed when providing an error message" $
+
+    it "it should stop after a singlequoted value has been reached" $
       let msg :: BS.ByteString
-          msg = "SESSION STATUS RESULT=I2P_ERROR MESSAGE=\"barMessage\"\n"
+          msg = "'foo bar' 'baz'"
 
-      in msg ~> createSession `shouldParse` (CreateSessionResultError "barMessage")
+      in msg ~> quotedValue `shouldParse` "foo bar"
 
-  describe "parsing an accept stream response" $ do
-    it "should succeed when providing a correct command" $
+  describe "parsing unquoted values" $ do
+    it "it should succeed when providing a simple value" $
       let msg :: BS.ByteString
-          msg = "STREAM STATUS RESULT=OK\n"
+          msg = "foo"
 
-      in msg ~> acceptStream `shouldParse` (AcceptStreamResultOk)
+      in msg ~> unquotedValue `shouldParse` "foo"
 
-    it "should succeed when providing an invalid id" $
+    it "it should stop after whitespace" $
       let msg :: BS.ByteString
-          msg = "STREAM STATUS RESULT=INVALID_ID MESSAGE=\"fooBarBaz\"\n"
+          msg = "foo bar"
 
-      in msg ~> acceptStream `shouldParse` (AcceptStreamResultInvalidId "fooBarBaz")
+      in msg ~> unquotedValue `shouldParse` "foo"
 
-    it "should succeed when providing an error message" $
+    it "it should stop after a newline" $
       let msg :: BS.ByteString
-          msg = "STREAM STATUS RESULT=I2P_ERROR MESSAGE=\"wombat\"\n"
+          msg = "foo\r\nbar"
 
-      in msg ~> acceptStream `shouldParse` (AcceptStreamResultError "wombat")
+      in msg ~> unquotedValue `shouldParse` "foo"
 
-  describe "parsing a connect to stream response" $ do
-    it "should succeed when providing a correct command" $
+    it "it should eat a destination" $
+      testDestination ~> unquotedValue `shouldParse` testDestination
+
+    it "it should eat a destination and not continue with more" $
+      BS.concat [testDestination, " foo=bar"] ~> unquotedValue `shouldParse` testDestination
+
+    it "should fail on empty input" $
+      unquotedValue `shouldFailOn` BS.empty
+
+  describe "parsing keys" $ do
+    it "it should succeed when providing a simple key" $
       let msg :: BS.ByteString
-          msg = "STREAM STATUS RESULT=OK\n"
+          msg = "foo"
 
-      in msg ~> connectStream `shouldParse` (ConnectStreamResultOk)
+      in msg ~> key `shouldParse` (Token "foo" Nothing)
 
-    it "should succeed when providing an invalid id" $
+    it "it should succeed when providing a space separated key" $
       let msg :: BS.ByteString
-          msg = "STREAM STATUS RESULT=INVALID_ID MESSAGE=\"batwomb\"\n"
+          msg = "foo bar"
 
-      in msg ~> connectStream `shouldParse` (ConnectStreamResultInvalidId "batwomb")
+      in msg ~> key `shouldParse` (Token "foo" Nothing)
 
-    it "should succeed when providing an invalid key" $
+    it "it should succeed when providing an equals separated key" $
       let msg :: BS.ByteString
-          msg = "STREAM STATUS RESULT=INVALID_KEY\n"
+          msg = "foo=bar"
 
-      in msg ~> connectStream `shouldParse` (ConnectStreamResultInvalidKey)
+      in msg ~> key `shouldParse` (Token "foo" Nothing)
 
-    it "should succeed when peer cannot be reached" $
+    it "should fail on empty input" $
+      key `shouldFailOn` BS.empty
+
+  describe "parsing key/values" $ do
+    it "it should succeed when providing a simple key/value" $
       let msg :: BS.ByteString
-          msg = "STREAM STATUS RESULT=CANT_REACH_PEER\n"
+          msg = "foo=bar"
 
-      in msg ~> connectStream `shouldParse` (ConnectStreamResultUnreachable)
+      in msg ~> keyValue `shouldParse` (Token "foo" (Just "bar"))
 
-    it "should succeed when a timeout occurred" $
+    it "it should succeed when providing a key/value where the value contains an equals sign" $
       let msg :: BS.ByteString
-          msg = "STREAM STATUS RESULT=TIMEOUT\n"
+          msg = "foo=bar=wombat"
 
-      in msg ~> connectStream `shouldParse` (ConnectStreamResultTimeout)
+      in msg ~> keyValue `shouldParse` (Token "foo" (Just "bar=wombat"))
 
-    it "should succeed when providing an error message" $
+    it "it should succeed when providing a destination as value" $
       let msg :: BS.ByteString
-          msg = "STREAM STATUS RESULT=I2P_ERROR MESSAGE=\"batwomb\"\n"
+          msg = BS.concat ["destination=", testDestination]
 
-      in msg ~> connectStream `shouldParse` (ConnectStreamResultError "batwomb")
+      in msg ~> keyValue `shouldParse` (Token "destination" (Just testDestination))
+
+    it "it should succeed when providing a quoted value" $
+      let msg :: BS.ByteString
+          msg = "foo=\"bar wombat\""
+
+      in msg ~> keyValue `shouldParse` (Token "foo" (Just "bar wombat"))
+
+    it "should fail on empty value" $
+      keyValue `shouldFailOn` ("foo=" :: BS.ByteString)
+
+    it "should fail on empty key" $
+      keyValue `shouldFailOn` ("=bar" :: BS.ByteString)
+
+  describe "parsing a token" $ do
+    it "should parse a key when only providing a key" $
+      let msg :: BS.ByteString
+          msg = "foo"
+
+      in msg ~> token `shouldParse` (Token "foo" Nothing)
+
+    it "should parse a key/value when providing a key/value" $
+      let msg :: BS.ByteString
+          msg = "foo=bar"
+
+      in msg ~> token `shouldParse` (Token "foo" (Just "bar"))
+
+    it "should skip any preceding horizontal whitespace" $
+      let msg :: BS.ByteString
+          msg = "   foo"
+
+      in msg ~> token `shouldParse` (Token "foo" Nothing)
+
+    it "should not skip any preceding newlines" $
+      let msg :: BS.ByteString
+          msg = "\nfoo"
+
+      in token `shouldFailOn` msg
+
+  describe "parsing many tokens" $ do
+    it "should parse multiple keys correctly" $
+      let msg :: BS.ByteString
+          msg = "foo bar"
+
+      in msg ~> tokens `shouldParse` [(Token "foo" Nothing), (Token "bar" Nothing)]
+
+    it "should parse multiple key/valuess correctly" $
+      let msg :: BS.ByteString
+          msg = "foo=bar wom=bat"
+
+      in msg ~> tokens `shouldParse` [(Token "foo" (Just "bar")), (Token "wom" (Just "bat"))]
+
+    it "should be able to mix and match key/values and keys" $
+      let msg :: BS.ByteString
+          msg = "foo=bar wombat foz=baz"
+
+      in msg ~> tokens `shouldParse` [(Token "foo" (Just "bar")), (Token "wombat" Nothing), Token "foz" (Just "baz")]
+
+  describe "parsing a line" $ do
+    it "should parse multiple keys correctly" $
+      let msg :: BS.ByteString
+          msg = "foo bar\n"
+
+      in msg ~> line `shouldParse` [(Token "foo" Nothing), (Token "bar" Nothing)]
+
+    it "should fail when no newline is provided" $
+      line `shouldFailOn` ("foo bar" :: BS.ByteString)

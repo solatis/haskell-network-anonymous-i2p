@@ -14,26 +14,28 @@ module Network.Anonymous.I2P.Protocol ( NST.connect
 import           Control.Monad.Catch
 import           Control.Monad.IO.Class
 
-import qualified Data.Text                               as T
-import qualified Data.Text.Encoding                      as TE
-import qualified Data.UUID                               as Uuid
-import qualified Data.UUID.V4                            as Uuid
+import qualified Data.Text                                 as T
+import qualified Data.Text.Encoding                        as TE
+import qualified Data.UUID                                 as Uuid
+import qualified Data.UUID.V4                              as Uuid
 
-import qualified Data.Attoparsec.ByteString              as Atto
-import qualified Data.ByteString                         as BS
-import qualified Data.ByteString.Char8                   as BS8
-import qualified Network.Simple.TCP                      as NST
+import qualified Data.Attoparsec.ByteString                as Atto
+import qualified Data.Attoparsec.ByteString.Char8          as Atto8
+import qualified Data.ByteString                           as BS
+import qualified Data.ByteString.Char8                     as BS8
+import qualified Network.Simple.TCP                        as NST
 
-import qualified Network.Socket                          as Network
-import qualified Network.Socket.ByteString               as Network
+import qualified Network.Socket                            as Network
+import qualified Network.Socket.ByteString                 as Network
 
-import qualified Network.Attoparsec                      as NA
+import qualified Network.Attoparsec                        as NA
 
-import qualified Network.Anonymous.I2P.Internal.Debug    as D
-import qualified Network.Anonymous.I2P.Protocol.Parser   as Parser
-import qualified Network.Anonymous.I2P.Types.Destination as D
-import qualified Network.Anonymous.I2P.Types.Socket      as S
-import qualified Network.Anonymous.I2P.Error             as E
+import qualified Network.Anonymous.I2P.Error               as E
+import qualified Network.Anonymous.I2P.Internal.Debug      as D
+import qualified Network.Anonymous.I2P.Protocol.Parser     as Parser
+import qualified Network.Anonymous.I2P.Protocol.Parser.Ast as Ast
+import qualified Network.Anonymous.I2P.Types.Destination   as D
+import qualified Network.Anonymous.I2P.Types.Socket        as S
 
 -- | Announces ourselves with SAM bridge and negotiates protocol version
 --
@@ -70,14 +72,23 @@ versionWithConstraint (minV, maxV) (s, _) =
       helloString :: BS.ByteString
       helloString = BS.concat ["HELLO VERSION MIN=", versionToString minV, " MAX=", versionToString maxV, "\n"]
 
+      versionParser :: Atto.Parser [Integer]
+      versionParser = (Atto8.decimal `Atto.sepBy` Atto8.char '.')
+
   in do
     liftIO $ Network.sendAll s helloString
-    res <- NA.parseOne s (Atto.parse Parser.version)
+    res <- NA.parseOne s (Atto.parse Parser.line)
 
     case res of
-     Parser.VersionResultOk v       -> D.log ("got version: " ++ show v)      (return v)
-     Parser.VersionResultNone       -> D.log "no good version found"          (E.i2pError (E.mkI2PError E.noVersionErrorType))
-     Parser.VersionResultError msg  -> D.log ("protocol error: " ++ show msg) (E.i2pError (E.mkI2PError E.protocolErrorType))
+     (Ast.Token "HELLO" Nothing : Ast.Token "REPLY" Nothing : xs) ->
+       case (Ast.value                 "RESULT"  xs,
+             Ast.valueAs versionParser "VERSION" xs) of
+
+        -- This is the normal result, and 'VERSION' will contain our (parsed) version
+        (Just ("OK"),        Just v) -> return v
+        (Just ("NOVERSION"), _)      -> E.i2pError (E.mkI2PError E.noVersionErrorType)
+        _                            -> E.i2pError (E.mkI2PError E.protocolErrorType)
+     _                               -> E.i2pError (E.mkI2PError E.protocolErrorType)
 
 -- | Create a session with default parameters provided.
 createSession :: ( MonadIO m
@@ -143,14 +154,20 @@ createSessionWith (Just sessionId) destination signatureType socketType (s, _) =
   in do
     liftIO $ putStrLn ("Sending version string: " ++ show (versionString sessionId))
     liftIO $ Network.sendAll s (versionString sessionId)
-    res <- NA.parseOne s (Atto.parse Parser.createSession)
+    res <- NA.parseOne s (Atto.parse Parser.line)
 
     case res of
-     Parser.CreateSessionResultOk d           -> D.log ("got destination: " ++ show d)  (return (sessionId, d))
-     Parser.CreateSessionResultDuplicatedId   -> D.log "duplicated session id"          (E.i2pError (E.mkI2PError E.duplicatedSessionIdErrorType))
-     Parser.CreateSessionResultDuplicatedDest -> D.log "duplicated destination"         (E.i2pError (E.mkI2PError E.duplicatedDestinationErrorType))
-     Parser.CreateSessionResultInvalidKey     -> D.log "invalid destination id"         (E.i2pError (E.mkI2PError E.invalidKeyErrorType))
-     Parser.CreateSessionResultError msg      -> D.log ("protocol error: " ++ show msg) (E.i2pError (E.mkI2PError E.protocolErrorType))
+     (Ast.Token "SESSION" Nothing : Ast.Token "STATUS" Nothing : xs) ->
+       case (Ast.value "RESULT"      xs,
+             Ast.value "DESTINATION" xs) of
+
+        -- This is the normal result, and 'VERSION' will contain our (parsed) version
+        (Just ("OK"),        Just d)  -> return (sessionId, D.Destination d)
+        (Just ("DUPLICATED_ID"),   _) -> E.i2pError (E.mkI2PError E.duplicatedSessionIdErrorType)
+        (Just ("DUPLICATED_DEST"), _) -> E.i2pError (E.mkI2PError E.duplicatedDestinationErrorType)
+        (Just ("INVALID_KEY"), _)     -> E.i2pError (E.mkI2PError E.invalidKeyErrorType)
+        _                             -> E.i2pError (E.mkI2PError E.protocolErrorType)
+     _                                -> E.i2pError (E.mkI2PError E.protocolErrorType)
 
 -- | For VirtualStream sockets, accepts one new connection
 acceptStream :: ( MonadIO m
@@ -169,12 +186,17 @@ acceptStream sessionId (sock, _) =
   in do
     liftIO $ putStrLn ("Sending acceptString: " ++ show (acceptString sessionId))
     liftIO $ Network.sendAll sock (acceptString sessionId)
-    res <- NA.parseOne sock (Atto.parse Parser.acceptStream)
+    res <- NA.parseOne sock (Atto.parse Parser.line)
 
     case res of
-     Parser.AcceptStreamResultOk            -> D.log "now accepting one stream through SAM" (return ())
-     Parser.AcceptStreamResultInvalidId msg -> D.log ("invalid session id: " ++ show sessionId ++ ", msg: " ++ show msg) (E.i2pError (E.mkI2PError E.invalidIdErrorType))
-     Parser.AcceptStreamResultError msg     -> D.log ("protocol error: " ++ show msg) (E.i2pError (E.mkI2PError E.protocolErrorType))
+     (Ast.Token "STREAM" Nothing : Ast.Token "STATUS" Nothing : xs) ->
+       case Ast.value "RESULT" xs of
+
+        -- This is the normal result, and 'VERSION' will contain our (parsed) version
+        Just ("OK")         -> return ()
+        Just ("INVALID_ID") -> E.i2pError (E.mkI2PError E.invalidIdErrorType)
+        _                   -> E.i2pError (E.mkI2PError E.protocolErrorType)
+     _                      -> E.i2pError (E.mkI2PError E.protocolErrorType)
 
 -- | For VirtualStream sockets, establishes connection with a remote
 connectStream :: ( MonadIO m
@@ -195,12 +217,17 @@ connectStream sessionId (D.Destination destination) (sock, _) =
   in do
     liftIO $ putStrLn ("Sending connectString: " ++ show (connectString sessionId))
     liftIO $ Network.sendAll sock (connectString sessionId)
-    res <- NA.parseOne sock (Atto.parse Parser.connectStream)
+    res <- NA.parseOne sock (Atto.parse Parser.line)
 
     case res of
-     Parser.ConnectStreamResultOk            -> D.log "connected to peer!" (return ())
-     Parser.ConnectStreamResultInvalidId msg -> D.log ("invalid session id: " ++ show sessionId ++ ", msg: " ++ show msg) (E.i2pError (E.mkI2PError E.invalidIdErrorType))
-     Parser.ConnectStreamResultInvalidKey    -> D.log ("invalid destination key: " ++ show destination) (E.i2pError (E.mkI2PError E.invalidKeyErrorType))
-     Parser.ConnectStreamResultTimeout       -> D.log ("timeout occured while connecting to destination: " ++ show destination) (E.i2pError (E.mkI2PError E.timeoutErrorType))
-     Parser.ConnectStreamResultUnreachable   -> D.log ("destination host unreachable: " ++ show destination) (E.i2pError (E.mkI2PError E.unreachableErrorType))
-     Parser.ConnectStreamResultError msg     -> D.log ("protocol error: " ++ show msg) (E.i2pError (E.mkI2PError E.protocolErrorType))
+     (Ast.Token "STREAM" Nothing : Ast.Token "STATUS" Nothing : xs) ->
+       case Ast.value "RESULT" xs of
+
+        -- This is the normal result, and 'VERSION' will contain our (parsed) version
+        Just ("OK")              -> return ()
+        Just ("INVALID_ID")      -> E.i2pError (E.mkI2PError E.invalidIdErrorType)
+        Just ("INVALID_KEY")     -> E.i2pError (E.mkI2PError E.invalidKeyErrorType)
+        Just ("TIMEOUT")         -> E.i2pError (E.mkI2PError E.timeoutErrorType)
+        Just ("CANT_REACH_PEER") -> E.i2pError (E.mkI2PError E.unreachableErrorType)
+        _                        -> E.i2pError (E.mkI2PError E.protocolErrorType)
+     _                           -> E.i2pError (E.mkI2PError E.protocolErrorType)

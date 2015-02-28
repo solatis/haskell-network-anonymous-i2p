@@ -43,6 +43,7 @@ library
                        Network.Anonymous.I2P.Types.Socket
                        Network.Anonymous.I2P.Protocol
                        Network.Anonymous.I2P.Protocol.Parser
+                       Network.Anonymous.I2P.Protocol.Parser.Ast
                        Network.Anonymous.I2P.Internal.Debug
 
   build-depends:       base                     >= 4.3          && < 5

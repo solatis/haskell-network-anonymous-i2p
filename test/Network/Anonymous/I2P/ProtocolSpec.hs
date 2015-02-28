@@ -169,7 +169,6 @@ spec = do
 
       in P.connect "127.0.0.1" "7656" phase1
 
-
   describe "when accepting a stream connection" $ do
     it "should be returning an error when we try to accept before creating a session" $
       let phase1 pair = P.version pair >> P.acceptStream "nonExistingSessionId" pair

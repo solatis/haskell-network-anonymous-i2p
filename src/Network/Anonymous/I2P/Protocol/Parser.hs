@@ -1,202 +1,112 @@
-{-# LANGUAGE OverloadedStrings #-}
-
 -- | Parser defintions
 --
 -- Defines parsers used by the I2P SAM protocol
 
 module Network.Anonymous.I2P.Protocol.Parser where
 
-import           Control.Applicative                     (pure, (*>), (<$>),
-                                                          (<*), (<|>))
-import           Control.Monad                           (void)
+import           Control.Applicative                         ((*>), (<$>), (<*),
+                                                              (<|>))
 
-import           Data.Attoparsec.ByteString              as Atto
-import           Data.Attoparsec.ByteString.Char8        as Atto8
-import qualified Data.ByteString                         as BS
-import qualified Network.Anonymous.I2P.Types.Destination as D
+import qualified Data.Attoparsec.ByteString                  as Atto
+import qualified Data.Attoparsec.ByteString.Char8            as Atto8
+import qualified Data.ByteString                             as BS
+import qualified Data.ByteString.Char8                       as BS8
+import           Data.Word                                   (Word8)
+import qualified Network.Anonymous.I2P.Protocol.Parser.Ast   as A
 
--- | Result emitted by 'version'
-data VersionResult =
-  VersionResultOk [Integer] |
-  VersionResultNone         |
-  VersionResultError String
-  deriving (Show, Eq)
+doubleQuote :: Word8
+doubleQuote = 34
 
--- | Result emitted by 'createSession'
-data CreateSessionResult =
-  CreateSessionResultOk D.Destination |
-  CreateSessionResultDuplicatedId     |
-  CreateSessionResultDuplicatedDest   |
-  CreateSessionResultInvalidKey       |
-  CreateSessionResultError String
-  deriving (Show, Eq)
+singleQuote :: Word8
+singleQuote = 39
 
--- | Result emitted by 'acceptStream'
-data AcceptStreamResult =
-  AcceptStreamResultOk               |
-  AcceptStreamResultInvalidId String |
-  AcceptStreamResultError String
-  deriving (Show, Eq)
+backslash :: Word8
+backslash = 92
 
--- | Result emitted by 'connectStream'
-data ConnectStreamResult =
-  ConnectStreamResultOk                |
-  ConnectStreamResultTimeout           |
-  ConnectStreamResultUnreachable       |
-  ConnectStreamResultInvalidId String  |
-  ConnectStreamResultInvalidKey        |
-  ConnectStreamResultError String
-  deriving (Show, Eq)
+equals :: Word8
+equals = 61
 
--- | A parser that reads a quoted message
-quotedMessage :: Parser String
-quotedMessage = string "\"" *> manyTill anyChar (string "\"")
+-- | Parses a single- or double-quoted value, and returns all bytes within the
+--   value; the unescaping is beyond the scope of this function (since different
+--   unescaping mechanisms might be desired).
+--
+--   Looking at the SAMv3 code on github, it appears as if the protocol is kind
+--   hacked together at the moment: no character escaping is performed at all,
+--   and no formal tokens / AST is used.
+--
+--   So this function already goes way beyond what is required, but it cannot
+--   hurt to do so.
+quotedValue :: Atto.Parser BS.ByteString
+quotedValue =
+  let quoted :: Word8                     -- ^ The character used for quoting
+             -> Atto.Parser BS.ByteString -- ^ The value inside the quotes, without the surrounding quotes
+      quoted c = (Atto.word8 c *> escaped c <* Atto.word8 c)
 
--- | A parser that reads a message until EOL is reached. EOL is *not* consumed.
-endOfLineMessage :: Parser BS.ByteString
-endOfLineMessage = Atto.takeTill (Atto.inClass "\r\n")
+      -- | Parses an escaped string, with an arbitrary surrounding quote type.
+      escaped :: Word8 -> Atto.Parser BS.ByteString
+      escaped c = BS8.concat <$> Atto8.many'
+                       -- Make sure that we eat pairs of backslashes; this will make sure
+                       -- that a string such as "\\\\" is interpreted correctly, and the
+                       -- ending quoted will not be interpreted as escaped.
+                  (    Atto8.string (BS8.pack "\\\\")
 
--- | Parses a HELLO VERSION response
-version :: Parser VersionResult
-version =
-  let parseResultNone :: Parser VersionResult
-      parseResultNone =
-        void (
-          string "NOVERSION") *> pure VersionResultNone
+                       -- This eats all escaped quotes and leaves them in tact; the unescaping
+                       -- is beyond the scope of this function.
+                   <|> Atto8.string (BS.pack [backslash, c])
 
-      parseResultOk :: Parser VersionResult
-      parseResultOk   =
-        VersionResultOk <$> (
-          string "OK VERSION=" *> decimal `sepBy` char '.')
+                       -- And for the rest: eat everything that is not a quote.
+                   <|> (BS.singleton <$> Atto.satisfy (/= c)))
 
-      parseResultError :: Parser VersionResult
-      parseResultError =
-        VersionResultError <$> (
-          string "I2P_ERROR MESSAGE=" *> quotedMessage)
+  in quoted doubleQuote <|> quoted singleQuote
+     Atto.<?> "quoted value"
 
-      parseResult :: Parser VersionResult
-      parseResult =
-        "HELLO REPLY RESULT=" *>
-        (     parseResultNone
-          <|> parseResultOk
-          <|> parseResultError )
-        <* endOfLine
+-- | An unquoted value is "everything until a whitespace or newline is reached".
+--   This is pretty broad, but the SAM implementation in I2P just uses a strtok,
+--   and is quite hackish.
+unquotedValue :: Atto.Parser BS.ByteString
+unquotedValue =
+  Atto8.takeWhile1 (not . Atto8.isSpace)
+  Atto.<?> "unquoted value"
 
-  in parseResult
+-- | Parses either a quoted value or an unquoted value
+value :: Atto.Parser BS.ByteString
+value =
+  quotedValue <|> unquotedValue
+  Atto.<?> "value"
 
--- | Parses a SESSION CREATE response
-createSession :: Parser CreateSessionResult
-createSession =
-  let parseResultInvalidKey :: Parser CreateSessionResult
-      parseResultInvalidKey =
-        void (
-          string "INVALID_KEY") *> pure CreateSessionResultInvalidKey
+-- | Parses key and value
+keyValue :: Atto.Parser A.Token
+keyValue = do
+  A.Token k _ <- key
+  _ <- Atto.word8 equals
+  v <- value
 
-      parseResultDuplicatedId :: Parser CreateSessionResult
-      parseResultDuplicatedId =
-        void (
-          string "DUPLICATED_ID") *> pure CreateSessionResultDuplicatedId
+  return (A.Token k (Just v))
 
-      parseResultDuplicatedDest :: Parser CreateSessionResult
-      parseResultDuplicatedDest =
-        void (
-          string "DUPLICATED_DEST") *> pure CreateSessionResultDuplicatedDest
+-- | Parses a key, which, after studying the SAMv3 code, is anything until either
+--   a space has been reached, or an '=' is reached.
+key :: Atto.Parser A.Token
+key =
+  let isKeyEnd '=' = True
+      isKeyEnd c   = Atto8.isSpace c
 
-      parseResultOk :: Parser CreateSessionResult
-      parseResultOk =
-        (CreateSessionResultOk . D.Destination) <$> (
-          string "OK DESTINATION=" *> endOfLineMessage)
+  in flip A.Token Nothing <$> Atto8.takeWhile1 (not . isKeyEnd)
+     Atto.<?> "key"
 
-      parseResultError :: Parser CreateSessionResult
-      parseResultError =
-        CreateSessionResultError <$> (
-          string "I2P_ERROR MESSAGE=" *> quotedMessage)
+-- | A Token is either a Key or a Key/Value combination.
+token :: Atto.Parser A.Token
+token =
+  Atto.skipWhile Atto8.isHorizontalSpace *> (keyValue <|> key)
+  Atto.<?> "token"
 
-      parseResult :: Parser CreateSessionResult
-      parseResult =
-        "SESSION STATUS RESULT=" *>
+-- | Parser that reads keys or key/values
+tokens :: Atto.Parser [A.Token]
+tokens =
+  Atto.many' token
+  Atto.<?> "tokens"
 
-        (     parseResultInvalidKey
-          <|> parseResultDuplicatedId
-          <|> parseResultDuplicatedDest
-          <|> parseResultOk
-          <|> parseResultError )
-        <* endOfLine
-
-  in parseResult
-
--- | Parses a STREAM ACCEPT response
-acceptStream :: Parser AcceptStreamResult
-acceptStream =
-  let parseResultOk :: Parser AcceptStreamResult
-      parseResultOk =
-        void (
-          string "OK") *> pure AcceptStreamResultOk
-
-      parseResultError :: Parser AcceptStreamResult
-      parseResultError =
-        AcceptStreamResultError <$> (
-          string "I2P_ERROR MESSAGE=" *> quotedMessage)
-
-      parseResultInvalidId :: Parser AcceptStreamResult
-      parseResultInvalidId =
-        AcceptStreamResultInvalidId <$> (
-          string "INVALID_ID MESSAGE=" *> quotedMessage)
-
-      parseResult :: Parser AcceptStreamResult
-      parseResult =
-        "STREAM STATUS RESULT=" *>
-
-        (     parseResultOk
-          <|> parseResultError
-          <|> parseResultInvalidId)
-        <* endOfLine
-
-  in parseResult
-
--- | Parses a STREAM CONNECT response
-connectStream :: Parser ConnectStreamResult
-connectStream =
-  let parseResultOk :: Parser ConnectStreamResult
-      parseResultOk =
-        void (
-          string "OK") *> pure ConnectStreamResultOk
-
-      parseResultTimeout :: Parser ConnectStreamResult
-      parseResultTimeout =
-        void (
-          string "TIMEOUT") *> pure ConnectStreamResultTimeout
-
-      parseResultInvalidKey :: Parser ConnectStreamResult
-      parseResultInvalidKey =
-        void (
-          string "INVALID_KEY") *> pure ConnectStreamResultInvalidKey
-
-      parseResultUnreachable :: Parser ConnectStreamResult
-      parseResultUnreachable =
-        void (
-          string "CANT_REACH_PEER") *> pure ConnectStreamResultUnreachable
-
-      parseResultError :: Parser ConnectStreamResult
-      parseResultError =
-        ConnectStreamResultError <$> (
-          string "I2P_ERROR MESSAGE=" *> quotedMessage)
-
-      parseResultInvalidId :: Parser ConnectStreamResult
-      parseResultInvalidId =
-        ConnectStreamResultInvalidId <$> (
-          string "INVALID_ID MESSAGE=" *> quotedMessage)
-
-      parseResult :: Parser ConnectStreamResult
-      parseResult =
-        "STREAM STATUS RESULT=" *>
-
-        (     parseResultOk
-          <|> parseResultTimeout
-          <|> parseResultInvalidKey
-          <|> parseResultUnreachable
-          <|> parseResultError
-          <|> parseResultInvalidId)
-        <* endOfLine
-
-  in parseResult
+-- | A generic parser that reads a whole line of key/values and ends in a newline
+line :: Atto.Parser A.Line
+line =
+  tokens <* Atto8.endOfLine
+  Atto.<?> "line"
