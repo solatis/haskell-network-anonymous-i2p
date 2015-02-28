@@ -2,6 +2,7 @@
 
 module Network.Anonymous.I2P.Protocol.Parser.AstSpec where
 
+import qualified Data.Attoparsec.ByteString                as Atto
 import           Network.Anonymous.I2P.Protocol.Parser.Ast
 
 import           Test.Hspec
@@ -41,3 +42,21 @@ spec = do
     it "should return first occurence if a key exists more than one time" $
       let tokens = [Token "foo" (Just "bar"), Token "foo" (Just "wombat")]
       in  value "foo" tokens `shouldBe` (Just "bar")
+
+  describe "looking up values and parsing them" $ do
+    let wombatParser = Atto.string "wombat"
+
+    it "should succeed when parsing digits" $
+      let tokens = [Token "foo" (Just "wombat")]
+
+      in  valueAs wombatParser "foo" tokens `shouldBe` Just ("wombat")
+
+    it "should return nothing when value is not found" $
+      let tokens = [Token "foo" (Just "wombat")]
+
+      in  valueAs wombatParser "bar" tokens `shouldBe` Nothing
+
+    it "should return nothing when value cannot be parsed" $
+      let tokens = [Token "foo" (Just "abcd")]
+
+      in  valueAs wombatParser "foo" tokens `shouldBe` Nothing
