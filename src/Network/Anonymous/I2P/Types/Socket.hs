@@ -30,5 +30,3 @@ data SocketType =
   -- information up to the client themselves.  These datagrams are
   -- unreliable and unordered, and may be up to 32768 bytes.
   DatagramAnonymous
-
-  deriving (Show)

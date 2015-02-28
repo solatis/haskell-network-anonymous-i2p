@@ -18,7 +18,7 @@ import qualified Data.ByteString as BS
 --   Long story short, we will just store the destinations as base64.
 data Destination = Destination {
   base64 :: BS.ByteString -- ^ Base64 representation of the destination
-  } deriving (Eq, Show)
+  }
 
 -- | Supported signature types by I2P, as defined at
 --   <https://geti2p.net/en/docs/spec/common-structures#type_Signature I2P Common Structure Documentation>
