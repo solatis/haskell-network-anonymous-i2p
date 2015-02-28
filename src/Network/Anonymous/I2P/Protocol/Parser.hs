@@ -58,7 +58,6 @@ quotedValue =
                    <|> (BS.singleton <$> Atto.satisfy (/= c)))
 
   in quoted doubleQuote <|> quoted singleQuote
-     Atto.<?> "quoted value"
 
 -- | An unquoted value is "everything until a whitespace or newline is reached".
 --   This is pretty broad, but the SAM implementation in I2P just uses a strtok,
@@ -66,13 +65,11 @@ quotedValue =
 unquotedValue :: Atto.Parser BS.ByteString
 unquotedValue =
   Atto8.takeWhile1 (not . Atto8.isSpace)
-  Atto.<?> "unquoted value"
 
 -- | Parses either a quoted value or an unquoted value
 value :: Atto.Parser BS.ByteString
 value =
   quotedValue <|> unquotedValue
-  Atto.<?> "value"
 
 -- | Parses key and value
 keyValue :: Atto.Parser A.Token
@@ -91,22 +88,18 @@ key =
       isKeyEnd c   = Atto8.isSpace c
 
   in flip A.Token Nothing <$> Atto8.takeWhile1 (not . isKeyEnd)
-     Atto.<?> "key"
 
 -- | A Token is either a Key or a Key/Value combination.
 token :: Atto.Parser A.Token
 token =
   Atto.skipWhile Atto8.isHorizontalSpace *> (keyValue <|> key)
-  Atto.<?> "token"
 
 -- | Parser that reads keys or key/values
 tokens :: Atto.Parser [A.Token]
 tokens =
   Atto.many' token
-  Atto.<?> "tokens"
 
 -- | A generic parser that reads a whole line of key/values and ends in a newline
 line :: Atto.Parser A.Line
 line =
   tokens <* Atto8.endOfLine
-  Atto.<?> "line"
