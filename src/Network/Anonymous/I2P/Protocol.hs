@@ -211,7 +211,7 @@ connectStream sessionId (D.Destination destination) (sock, _) =
         BS.concat [ "STREAM CONNECT "
                   , "ID=", BS8.pack s, " "
                   , "DESTINATION=", destination, " "
-                  , "SILENT=FALSE"
+                  , "SILENT=false"
                   , "\n"]
 
   in do

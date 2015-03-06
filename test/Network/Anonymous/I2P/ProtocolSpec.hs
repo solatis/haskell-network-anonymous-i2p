@@ -210,3 +210,25 @@ spec = do
           performTest socketType = P.connect "127.0.0.1" "7656" (phase1 socketType) `shouldThrow` U.isI2PError E.protocolErrorType
 
       in mapM performTest socketTypes >> return ()
+
+    it "should be returning an error when we try to connect with a stream to a destination that does not exist" $
+      let socketType = S.VirtualStream
+
+          createDestination = do
+            P.connect "127.0.0.1" "7656" (\pair -> do
+                                             _ <- P.version pair
+                                             (_, destination) <- P.createSession socketType pair
+                                             return (destination))
+
+          phase2 dest sessionId pair = P.version pair >> P.connectStream sessionId dest pair
+
+          phase1 dest pair = do
+            (sessionId, _) <- P.version pair >> P.createSession socketType pair
+
+            P.connect "127.0.0.1" "7656" (phase2 dest sessionId)
+
+      in do
+        destination <- createDestination
+
+        -- At this point, the socket is closed and the destination does not any longer exist
+        P.connect "127.0.0.1" "7656" (phase1 destination) `shouldThrow` U.isI2PError E.unreachableErrorType
