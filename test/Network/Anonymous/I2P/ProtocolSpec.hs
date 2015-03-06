@@ -106,7 +106,9 @@ spec = do
     it "should be able to create new destinations with all signature types" $
       let createSession signatureType pair = P.version pair >> P.createSessionWith Nothing Nothing (Just signatureType) S.VirtualStream pair
 
-          performTest signatureType = P.connect "127.0.0.1" "7656" (createSession signatureType)
+          performTest signatureType = do
+            (sessionId, _) <- P.connect "127.0.0.1" "7656" (createSession signatureType)
+            (Uuid.fromString sessionId) `shouldSatisfy` isJust
 
           sigTypes =  [ D.DsaSha1
                       , D.EcdsaSha256P256
