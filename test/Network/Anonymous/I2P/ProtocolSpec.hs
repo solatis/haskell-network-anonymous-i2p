@@ -213,6 +213,18 @@ spec = do
 
       in mapM performTest socketTypes >> return ()
 
+    it "should be returning an error when we try to connect with a stream with an invalid destination type" $
+      let socketType = S.VirtualStream
+
+          phase2 sessionId pair = P.version pair >> P.connectStream sessionId (D.Destination "invalidDestination") pair
+
+          phase1 pair = do
+            (sessionId, _) <- P.version pair >> P.createSession socketType pair
+
+            P.connect "127.0.0.1" "7656" (phase2 sessionId)
+
+      in P.connect "127.0.0.1" "7656" phase1 `shouldThrow` U.isI2PError E.invalidKeyErrorType
+
     it "should be returning an error when we try to connect with a stream to a destination that does not exist" $
       let socketType = S.VirtualStream
 
