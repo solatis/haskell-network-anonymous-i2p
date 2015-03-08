@@ -6,11 +6,13 @@
 module Network.Anonymous.I2P.Protocol ( NST.connect
                                       , version
                                       , versionWithConstraint
+                                      , createDestination
                                       , createSession
                                       , createSessionWith
                                       , acceptStream
                                       , connectStream) where
 
+import           Control.Applicative                         ((<*))
 import           Control.Monad.Catch
 import           Control.Monad.IO.Class
 
@@ -90,65 +92,93 @@ versionWithConstraint (minV, maxV) (s, _) =
         _                            -> E.i2pError (E.mkI2PError E.protocolErrorType)
      _                               -> E.i2pError (E.mkI2PError E.protocolErrorType)
 
+-- | Creates a new I2P public/private destination pair
+createDestination :: ( MonadIO m
+                     , MonadMask m)
+                  => Maybe D.SignatureType
+                  -> (Network.Socket, Network.SockAddr)
+                  -> m (D.PrivateDestination, D.PublicDestination)
+createDestination signature (sock, _) =
+  let signatureToString :: Maybe D.SignatureType -> BS.ByteString
+      signatureToString Nothing                     = ""
+      signatureToString (Just D.DsaSha1)            = "SIGNATURE_TYPE=DSA_SHA1"
+
+      signatureToString (Just D.EcdsaSha256P256)    = "SIGNATURE_TYPE=ECDSA_SHA256_P256"
+      signatureToString (Just D.EcdsaSha384P384)    = "SIGNATURE_TYPE=ECDSA_SHA384_P384"
+      signatureToString (Just D.EcdsaSha512P521)    = "SIGNATURE_TYPE=ECDSA_SHA512_P521"
+
+      signatureToString (Just D.RsaSha2562048)      = "SIGNATURE_TYPE=RSA_SHA256_2048"
+      signatureToString (Just D.RsaSha3843072)      = "SIGNATURE_TYPE=RSA_SHA384_3072"
+      signatureToString (Just D.RsaSha5124096)      = "SIGNATURE_TYPE=RSA_SHA512_4096"
+
+      signatureToString (Just D.EdDsaSha512Ed25519) = "SIGNATURE_TYPE=EdDSA_SHA512_Ed25519"
+
+      createDestinationString :: BS.ByteString
+      createDestinationString =
+        BS.concat [ "DEST GENERATE "
+                  , signatureToString signature
+                  , "\n"]
+
+  in do
+    liftIO $ putStrLn ("Sending createDestinationString: " ++ show createDestinationString)
+    liftIO $ Network.sendAll sock createDestinationString
+    res <- NA.parseOne sock (Atto.parse Parser.line)
+
+    case res of
+     (Ast.Token "DEST" Nothing : Ast.Token "REPLY" Nothing : xs) ->
+       case (Ast.value "PRIV" xs, Ast.value "PUB" xs)  of
+        (Just priv, Just pub) -> D.log
+                                   ("created destination, priv = " ++ show priv ++ ", pub = " ++ show pub)
+                                   return ((D.PrivateDestination priv, D.PublicDestination pub))
+
+        _                     -> E.i2pError (E.mkI2PError E.protocolErrorType)
+     _ -> E.i2pError (E.mkI2PError E.protocolErrorType)
+
 -- | Create a session with default parameters provided.
 createSession :: ( MonadIO m
-           , MonadMask m)
-        => S.SocketType                       -- ^ I2P socket type to create
-        -> (Network.Socket, Network.SockAddr) -- ^ Our connection with SAM bridge
-        -> m (String, D.Destination)          -- ^ Our session id and our private destination key
-createSession = createSessionWith Nothing Nothing Nothing
+                 , MonadMask m)
+              => S.SocketType                                          -- ^ I2P socket type to create
+              -> (Network.Socket, Network.SockAddr)                    -- ^ Our connection with SAM bridge
+              -> m (String, D.PrivateDestination, D.PublicDestination) -- ^ Our session id and our private destination key
+createSession socketType pair = do
+  (privDestination, pubDestination) <- createDestination Nothing pair
+  sessionId                         <- createSessionWith Nothing privDestination socketType pair
+
+  return (sessionId, privDestination, pubDestination)
 
 -- | Create a session, and explicitly provide all parameters to use
 createSessionWith :: ( MonadIO m
-                     , MonadMask m)
+                     , MonadMask m
+                     , D.Acceptable d
+                     , D.Destination d)
                   => Maybe String                       -- ^ Session id to use. If none is provided, a new
                                                         --   unique session id is created.
-                  -> Maybe D.Destination                -- ^ Destination to use. If none is provided, a new
-                                                        --   unique destination will be created.
-                  -> Maybe D.SignatureType              -- ^ If a new destination is to be created, provides
-                                                        --   the signature type to use. If none is provided,
-                                                        --   the I2P default will be used.
+                  -> d                                  -- ^ Destination to use.
                   -> S.SocketType                       -- ^ I2P socket type to create
                   -> (Network.Socket, Network.SockAddr) -- ^ Our connection with SAM bridge
-                  -> m (String, D.Destination)          -- ^ Our session id and our private destination key
+                  -> m String                           -- ^ Our session id
 
 -- Specialization where no session is was provided. In this case, we create a
 -- new session id based on a UUID, and enter recursion with the fresh session id
 -- provided.
-createSessionWith Nothing destination signatureType socketType pair = do
+createSessionWith Nothing destination socketType pair = do
   uuid <- liftIO Uuid.nextRandom
 
   D.log
     ("created session id: " ++ show uuid)
-    createSessionWith (Just (Uuid.toString uuid)) destination signatureType socketType pair
+    createSessionWith (Just (Uuid.toString uuid)) destination socketType pair
 
-createSessionWith (Just sessionId) destination signatureType socketType (s, _) =
+createSessionWith (Just sessionId) destination socketType (s, _) =
   let socketTypeToString :: S.SocketType -> BS.ByteString
       socketTypeToString S.VirtualStream     = "STREAM"
       socketTypeToString S.DatagramRepliable = "DATAGRAM"
       socketTypeToString S.DatagramAnonymous = "RAW"
 
-      destinationToString :: Maybe D.Destination -> Maybe D.SignatureType -> BS.ByteString
-      destinationToString (Just (D.Destination d)) _          = d
-
-      destinationToString Nothing Nothing                     = "TRANSIENT"
-      destinationToString Nothing (Just D.DsaSha1)            = "TRANSIENT SIGNATURE_TYPE=DSA_SHA1"
-
-      destinationToString Nothing (Just D.EcdsaSha256P256)    = "TRANSIENT SIGNATURE_TYPE=ECDSA_SHA256_P256"
-      destinationToString Nothing (Just D.EcdsaSha384P384)    = "TRANSIENT SIGNATURE_TYPE=ECDSA_SHA384_P384"
-      destinationToString Nothing (Just D.EcdsaSha512P521)    = "TRANSIENT SIGNATURE_TYPE=ECDSA_SHA512_P521"
-
-      destinationToString Nothing (Just D.RsaSha2562048)      = "TRANSIENT SIGNATURE_TYPE=RSA_SHA256_2048"
-      destinationToString Nothing (Just D.RsaSha3843072)      = "TRANSIENT SIGNATURE_TYPE=RSA_SHA384_3072"
-      destinationToString Nothing (Just D.RsaSha5124096)      = "TRANSIENT SIGNATURE_TYPE=RSA_SHA512_4096"
-
-      destinationToString Nothing (Just D.EdDsaSha512Ed25519) = "TRANSIENT SIGNATURE_TYPE=EdDSA_SHA512_Ed25519"
-
       versionString :: String -> BS.ByteString
       versionString sid =
         BS.concat [ "SESSION CREATE STYLE=", socketTypeToString socketType, " "
                   , "ID=", BS8.pack sid, " "
-                  , "DESTINATION=", destinationToString destination signatureType
+                  , "DESTINATION=", D.asByteString destination
                   , "\n"]
 
   in do
@@ -158,30 +188,40 @@ createSessionWith (Just sessionId) destination signatureType socketType (s, _) =
 
     case res of
      (Ast.Token "SESSION" Nothing : Ast.Token "STATUS" Nothing : xs) ->
-       case (Ast.value "RESULT"      xs,
-             Ast.value "DESTINATION" xs) of
+       case Ast.value "RESULT" xs of
 
         -- This is the normal result, and 'VERSION' will contain our (parsed) version
-        (Just ("OK"),        Just d)  -> return (sessionId, D.Destination d)
-        (Just ("DUPLICATED_ID"),   _) -> E.i2pError (E.mkI2PError E.duplicatedSessionIdErrorType)
-        (Just ("DUPLICATED_DEST"), _) -> E.i2pError (E.mkI2PError E.duplicatedDestinationErrorType)
-        (Just ("INVALID_KEY"), _)     -> E.i2pError (E.mkI2PError E.invalidKeyErrorType)
-        _                             -> E.i2pError (E.mkI2PError E.protocolErrorType)
-     _                                -> E.i2pError (E.mkI2PError E.protocolErrorType)
+        Just ("OK")              -> return sessionId
+        Just ("DUPLICATED_ID")   -> E.i2pError (E.mkI2PError E.duplicatedSessionIdErrorType)
+        Just ("DUPLICATED_DEST") -> E.i2pError (E.mkI2PError E.duplicatedDestinationErrorType)
+        Just ("INVALID_KEY")     -> E.i2pError (E.mkI2PError E.invalidKeyErrorType)
+        _                        -> E.i2pError (E.mkI2PError E.protocolErrorType)
+     _                           -> E.i2pError (E.mkI2PError E.protocolErrorType)
 
 -- | For VirtualStream sockets, accepts one new connection
 acceptStream :: ( MonadIO m
                 , MonadMask m)
-             => String                             -- ^ Our session id
-             -> (Network.Socket, Network.SockAddr) -- ^ Our connection with SAM bridge
-             -> m ()                               -- ^ Returns as soon as connection has been accepted
+             => String                                  -- ^ Our session id
+             -> (Network.Socket, Network.SockAddr)      -- ^ Our connection with SAM bridge
+             -> m (Network.Socket, D.PublicDestination) -- ^ Returns as soon as connection has been accepted
 acceptStream sessionId (sock, _) =
   let acceptString :: String -> BS.ByteString
       acceptString s =
         BS.concat [ "STREAM ACCEPT "
                   , "ID=", BS8.pack s, " "
-                  , "SILENT=FALSE"
+                  , "SILENT=false"
                   , "\n"]
+
+      -- After a connection has been accepted, the first line denotes the base64
+      -- representation of the remote destination.
+      readDestination s =
+        let lineParser :: Atto.Parser BS.ByteString
+            lineParser = Atto8.takeTill (== '\n') <* Atto8.endOfLine
+
+        in do
+          buf <- NA.parseOne s (Atto.parse lineParser)
+          liftIO $ putStrLn ("Got destination in buffer: " ++ show buf)
+          return (D.PublicDestination buf)
 
   in do
     liftIO $ putStrLn ("Sending acceptString: " ++ show (acceptString sessionId))
@@ -193,24 +233,28 @@ acceptStream sessionId (sock, _) =
        case Ast.value "RESULT" xs of
 
         -- This is the normal result, and 'VERSION' will contain our (parsed) version
-        Just ("OK")         -> return ()
+        Just ("OK")         -> do
+          dst <- readDestination sock
+          return (sock, dst)
         Just ("INVALID_ID") -> E.i2pError (E.mkI2PError E.invalidIdErrorType)
         _                   -> E.i2pError (E.mkI2PError E.protocolErrorType)
      _                      -> E.i2pError (E.mkI2PError E.protocolErrorType)
 
 -- | For VirtualStream sockets, establishes connection with a remote
 connectStream :: ( MonadIO m
-                 , MonadMask m)
+                 , MonadMask m
+                 , D.Connectable d
+                 , D.Destination d)
               => String                             -- ^ Our session id
-              -> D.Destination                      -- ^ Destination we wish to connect to
+              -> d                                  -- ^ Destination we wish to connect to
               -> (Network.Socket, Network.SockAddr) -- ^ Our connection with SAM bridge
               -> m ()                               -- ^ Returning state
-connectStream sessionId (D.Destination destination) (sock, _) =
+connectStream sessionId destination (sock, _) =
   let connectString :: String -> BS.ByteString
       connectString s =
         BS.concat [ "STREAM CONNECT "
                   , "ID=", BS8.pack s, " "
-                  , "DESTINATION=", destination, " "
+                  , "DESTINATION=", (D.asByteString destination), " "
                   , "SILENT=false"
                   , "\n"]
 

@@ -3,22 +3,37 @@ module Network.Anonymous.I2P.Types.Destination where
 
 import qualified Data.ByteString as BS
 
--- | I2P destination
+class Destination a where
+  asByteString :: a -> BS.ByteString
+
+-- | An I2P destination we can connect to.
+class Connectable a where
+
+-- | An I2P destination we can accept connections from.
+class Acceptable  a where
+
+-- | I2P Public destination
 --
---   This type represents the *encoded*, base64 representation of an I2P
---   destination. According to the <https://geti2p.net/en/docs/spec/common-structures#struct_Destination I2P documentation>
---   the destination is a concatenation of the destination, encryption key and
---   the signing key. However, since these are variable length, it is not
---   practical to actually decode them, since we do not have a use for them
---   anyway.
+--   A public destination is the base64 representation of the public I2P
+--   key of a destination, and should be given out to other people to connect
+--   to your host.
+data PublicDestination = PublicDestination BS.ByteString deriving (Eq, Show)
+instance Connectable PublicDestination
+instance Destination PublicDestination where
+  asByteString (PublicDestination bs) = bs
+
+-- | I2P Private destination
 --
---   Furthermore, when testing using the haskell base64 library, apparently
---   the destination is not valid base64 either.
---
---   Long story short, we will just store the destinations as base64.
-data Destination = Destination {
-  base64 :: BS.ByteString -- ^ Base64 representation of the destination
-  }
+--   A private destination is the base64 representation of the private I2P
+--   key of a destination, and you should keep this address to yourself. It
+--   can be used to accepts connections, and as such, if you give this private
+--   destination out to others, you are effectively giving them the ability
+--   to MITM you.
+data PrivateDestination = PrivateDestination BS.ByteString deriving (Eq, Show)
+instance Connectable PrivateDestination
+instance Acceptable  PrivateDestination
+instance Destination PrivateDestination where
+  asByteString (PrivateDestination bs) = bs
 
 -- | Supported signature types by I2P, as defined at
 --   <https://geti2p.net/en/docs/spec/common-structures#type_Signature I2P Common Structure Documentation>
