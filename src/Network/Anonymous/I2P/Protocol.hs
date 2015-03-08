@@ -10,7 +10,9 @@ module Network.Anonymous.I2P.Protocol ( NST.connect
                                       , createSession
                                       , createSessionWith
                                       , acceptStream
-                                      , connectStream) where
+                                      , connectStream
+                                      , sendDatagram
+                                      , receiveDatagram) where
 
 import           Control.Applicative                         ((<*))
 import           Control.Monad.Catch
@@ -27,7 +29,7 @@ import qualified Data.ByteString                           as BS
 import qualified Data.ByteString.Char8                     as BS8
 import qualified Network.Simple.TCP                        as NST
 
-import qualified Network.Socket                            as Network
+import qualified Network.Socket                            as Network hiding (recv)
 import qualified Network.Socket.ByteString                 as Network
 
 import qualified Network.Attoparsec                        as NA
@@ -267,3 +269,67 @@ connectStream sessionId destination (sock, _) =
      Just ("TIMEOUT")         -> E.i2pError (E.mkI2PError E.timeoutErrorType)
      Just ("CANT_REACH_PEER") -> E.i2pError (E.mkI2PError E.unreachableErrorType)
      _                        -> E.i2pError (E.mkI2PError E.protocolErrorType)
+
+
+-- | For DatagramRepliable and DatagramAnonymous, send a message
+sendDatagram :: ( MonadIO m
+                , MonadMask m
+                , D.Connectable d
+                , D.Destination d)
+             => String                             -- ^ Our session id
+             -> d                                  -- ^ Destination we wish to send message to
+             -> BS.ByteString                      -- ^ Message we wish to send
+             -> (Network.Socket, Network.SockAddr) -- ^ Our connection with SAM UDP port (7655)
+             -> m ()                               -- ^ Returning state
+sendDatagram sessionId destination message (sock, _) =
+  let sendString s dest msg =
+        BS.concat [ "3.0 "
+                  , BS8.pack s, " "
+                  , D.asByteString dest, " "
+                  , "\n"
+                  , msg]
+
+  in do
+    liftIO $ putStrLn ("Sending output: " ++ show (sendString sessionId destination message))
+    liftIO $ Network.sendAll sock (sendString sessionId destination message)
+    return ()
+
+-- | For DatagramRepliable and DatagramAnonymous, receive a message
+receiveDatagram :: ( MonadIO m
+                   , MonadMask m)
+                => (Network.Socket, Network.SockAddr)           -- ^ Our connection with SAM bridge
+                -> m (BS.ByteString, Maybe D.PublicDestination) -- ^ Received buffer, possibly with a reply destination
+receiveDatagram (sock, _) =
+
+  let receive :: Int -> IO BS.ByteString
+      receive 0 = return (BS.empty)
+      receive bytes = do
+        recv  <- D.log
+                   ("Reading " ++ show bytes ++ " bytes as datagram")
+                   Network.recv sock bytes
+
+        recv' <- receive (bytes - BS.length recv)
+
+        return (BS.append recv recv')
+
+      handleRepliable tokens =
+          case (Ast.value "SIZE" tokens, Ast.value "DESTINATION" tokens) of
+           (Just size, Just destination) -> do
+             buf <- liftIO $ (receive . read . BS8.unpack) size
+             return (buf, Just (D.PublicDestination destination))
+           _                             -> E.i2pError (E.mkI2PError E.protocolErrorType)
+
+      handleAnonymous tokens =
+          case Ast.value "SIZE" tokens of
+           Just size -> do
+             buf <- liftIO $ (receive . read . BS8.unpack) size
+             return (buf, Nothing)
+           _         -> E.i2pError (E.mkI2PError E.protocolErrorType)
+
+  in do
+    res <- NA.parseOne sock (Atto.parse Parser.line)
+
+    case res of
+     (Ast.Token "DATAGRAM" Nothing : Ast.Token "RECEIVED" Nothing : xs) -> handleRepliable xs
+     (Ast.Token "RAW" Nothing      : Ast.Token "RECEIVED" Nothing : xs) -> handleAnonymous xs
+     _                                                                  -> E.i2pError (E.mkI2PError E.protocolErrorType)
