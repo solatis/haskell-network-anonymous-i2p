@@ -58,7 +58,7 @@ expectResponse sock output (first, second) = do
     res <- NA.parseOne sock (Atto.parse Parser.line)
 
     case res of
-     (Ast.Token first' Nothing : Ast.Token second' Nothing : xs) -> if (first == first' && second == second')
+     (Ast.Token first' Nothing : Ast.Token second' Nothing : xs) -> if first == first' && second == second'
                                                                     then return xs
                                                                     else E.i2pError (E.mkI2PError E.protocolErrorType)
      _                                                           -> E.i2pError (E.mkI2PError E.protocolErrorType)
