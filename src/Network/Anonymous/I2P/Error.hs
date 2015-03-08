@@ -32,6 +32,7 @@ data I2PErrorType
   | Timeout
   | Unreachable
   | ProtocolError
+  | MessageTooLong
   deriving (Show, Eq)
 
 -- | Generates new I2PException
@@ -65,6 +66,10 @@ timeoutErrorType = Timeout
 -- | I2P error when a host was unreachable
 unreachableErrorType :: I2PErrorType
 unreachableErrorType = Unreachable
+
+-- | I2P error when communication with the SAM bridge fails
+messageTooLongErrorType :: I2PErrorType
+messageTooLongErrorType = MessageTooLong
 
 -- | I2P error when communication with the SAM bridge fails
 protocolErrorType :: I2PErrorType

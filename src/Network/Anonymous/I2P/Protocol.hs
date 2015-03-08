@@ -29,7 +29,7 @@ import qualified Data.ByteString                           as BS
 import qualified Data.ByteString.Char8                     as BS8
 import qualified Network.Simple.TCP                        as NST
 
-import qualified Network.Socket                            as Network hiding (recv)
+import qualified Network.Socket                            as Network hiding (recv, send)
 import qualified Network.Socket.ByteString                 as Network
 
 import qualified Network.Attoparsec                        as NA
@@ -279,19 +279,26 @@ sendDatagram :: ( MonadIO m
              => String                             -- ^ Our session id
              -> d                                  -- ^ Destination we wish to send message to
              -> BS.ByteString                      -- ^ Message we wish to send
-             -> (Network.Socket, Network.SockAddr) -- ^ Our connection with SAM UDP port (7655)
              -> m ()                               -- ^ Returning state
-sendDatagram sessionId destination message (sock, _) =
-  let sendString s dest msg =
+sendDatagram sessionId destination message =
+  let sendString =
         BS.concat [ "3.0 "
-                  , BS8.pack s, " "
-                  , D.asByteString dest, " "
+                  , BS8.pack sessionId, " "
+                  , D.asByteString destination, " "
                   , "\n"
-                  , msg]
+                  , message]
 
   in do
-    liftIO $ putStrLn ("Sending output: " ++ show (sendString sessionId destination message))
-    liftIO $ Network.sendAll sock (sendString sessionId destination message)
+    -- Establish connection to UDP SAM service at port 7655
+    addrinfos <- liftIO $ Network.getAddrInfo Nothing (Just "127.0.0.1") (Just "7655")
+    let serveraddr = head addrinfos
+    sock <- liftIO $ Network.socket (Network.addrFamily serveraddr) Network.Datagram Network.defaultProtocol
+    liftIO $ Network.connect sock (Network.addrAddress serveraddr)
+
+    -- And write the message
+    liftIO $ putStrLn ("Sending datagram output: " ++ show sendString)
+    liftIO $ Network.sendAll sock sendString
+
     return ()
 
 -- | For DatagramRepliable and DatagramAnonymous, receive a message

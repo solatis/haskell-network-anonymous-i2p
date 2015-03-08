@@ -22,14 +22,16 @@ import qualified Network.Anonymous.I2P.Protocol as P     (connect,
                                                           version,
                                                           versionWithConstraint,
                                                           acceptStream,
-                                                          connectStream)
+                                                          connectStream,
+                                                          sendDatagram,
+                                                          receiveDatagram)
 import qualified Network.Anonymous.I2P.Types.Destination as D
 import qualified Network.Anonymous.I2P.Types.Socket      as S
 import qualified Network.Anonymous.I2P.Util              as U
 
 import qualified Data.ByteString                         as BS
 import qualified Data.ByteString.Char8                   as BS8
-import           Data.Maybe                              (fromJust, isJust)
+import           Data.Maybe                              (fromJust, isJust, isNothing)
 import qualified Data.UUID                               as Uuid
 import qualified Data.UUID.Util                          as Uuid
 import qualified Data.UUID.V4                            as Uuid
@@ -363,3 +365,74 @@ spec = do
             P.connect "127.0.0.1" "7656" (phase2 sessionIdAccept publicDestinationAccept)
 
       in P.connect "127.0.0.1" "7656" phase1
+
+
+
+
+  describe "when sending and receiving datagram messages" $ do
+    it "should be able to receive a datagram message with a reply destination" $
+      let socketTypes = [ S.DatagramRepliable
+                        , S.DatagramAnonymous ]
+
+          createSink socketType sinkPair sinkDestination testFinished pairSink = do
+            putStrLn "creating sink session"
+            (privateDestinationSink, publicDestinationSink) <- P.version pairSink >> P.createDestination Nothing pairSink
+            _ <- P.createSessionWith Nothing privateDestinationSink socketType pairSink
+
+            putMVar sinkDestination publicDestinationSink
+            putMVar sinkPair pairSink
+
+            -- Block until test is finished, so the sockets stay alive
+            finished <- readMVar testFinished
+            finished `shouldBe` True
+
+          createSource socketType sourceSession testFinished pairSource = do
+            putStrLn "creating source session"
+            (privateDestinationSource, _) <- P.version pairSource >> P.createDestination Nothing pairSource
+            sessionIdSource <- P.createSessionWith Nothing privateDestinationSource socketType pairSource
+
+            putMVar sourceSession sessionIdSource
+
+            -- Block until test is finished, so the sockets stay alive
+            finished <- readMVar testFinished
+            finished `shouldBe` True
+
+          performTest socketType = do
+            testFinished'    <- newEmptyMVar
+
+            -- Our 'source' socket is the party that sends the datagram
+            sourceSessionId' <- newEmptyMVar
+
+            -- Our 'sink' socket is the party that receives the datagram
+            sinkPair'        <- newEmptyMVar
+            sinkDestination' <- newEmptyMVar
+
+            _ <- forkIO $ P.connect "127.0.0.1" "7656" (createSink   socketType sinkPair'   sinkDestination' testFinished')
+            _ <- forkIO $ P.connect "127.0.0.1" "7656" (createSource socketType sourceSessionId' testFinished')
+
+            -- First, we need our source socket and session id, and the destination
+            -- where we should send the message to.
+            sinkDestination <- takeMVar sinkDestination'
+            sourceSessionId <- takeMVar sourceSessionId'
+
+            -- Now, lets' wait until the sink socket is ready to receive
+            sinkPair        <- takeMVar sinkPair'
+
+            -- Put a message on top of our source socket
+            P.sendDatagram sourceSessionId sinkDestination (BS8.pack "Hello, world!")
+
+            putStrLn "Now attempting to receive a datagram in the sink"
+
+            -- Wait for a message to arrive on our sink socket
+            (msg, destination) <- P.receiveDatagram sinkPair
+
+            msg `shouldBe` (BS8.pack "Hello, world!")
+
+            case socketType of
+             S.DatagramAnonymous -> destination `shouldSatisfy` isNothing
+             S.DatagramRepliable -> destination `shouldSatisfy` isJust
+             _                   -> fail ("internal error: unrecognized socketType")
+
+            return ()
+
+      in mapM performTest socketTypes >> return ()
