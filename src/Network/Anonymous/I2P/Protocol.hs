@@ -129,7 +129,7 @@ createDestination signature (sock, _) =
        case (Ast.value "PRIV" xs, Ast.value "PUB" xs)  of
         (Just priv, Just pub) -> D.log
                                    ("created destination, priv = " ++ show priv ++ ", pub = " ++ show pub)
-                                   return ((D.PrivateDestination priv, D.PublicDestination pub))
+                                   return (D.PrivateDestination priv, D.PublicDestination pub)
 
         _                     -> E.i2pError (E.mkI2PError E.protocolErrorType)
      _ -> E.i2pError (E.mkI2PError E.protocolErrorType)
@@ -254,7 +254,7 @@ connectStream sessionId destination (sock, _) =
       connectString s =
         BS.concat [ "STREAM CONNECT "
                   , "ID=", BS8.pack s, " "
-                  , "DESTINATION=", (D.asByteString destination), " "
+                  , "DESTINATION=", D.asByteString destination, " "
                   , "SILENT=false"
                   , "\n"]
 
