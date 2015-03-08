@@ -58,12 +58,7 @@ testSockets sink source =
       recvAll :: NS.Socket -> Int -> IO BS.ByteString
       recvAll _ 0 = return (BS.empty)
       recvAll sock bytes = do
-        putStrLn ("receiving " ++ show bytes ++ " bytes")
-
-        recv <- NSB.recv sock bytes
-
-        putStrLn ("received: " ++ show recv)
-
+        recv  <- NSB.recv sock bytes
         recv' <- recvAll sock (bytes - BS.length recv)
 
         return (BS.append recv recv')
@@ -71,11 +66,7 @@ testSockets sink source =
   in do
     uuid <- Uuid.nextRandom
 
-    putStrLn ("sending uuid: " ++ show uuid)
-
     NSB.sendAll sink (uuidAsBs uuid)
-
-    putStrLn ("receiving from source.." ++ show uuid)
 
     received <- recvAll source (BS.length (uuidAsBs uuid))
     return (uuidAsBs uuid, received)
@@ -321,23 +312,19 @@ spec = do
           acceptAndTestConnection sessionId connectDestination connectSockMVar finishedTest pair = do
             (acceptSock, acceptDestination) <- P.version pair >> P.acceptStream sessionId pair
 
-            putStrLn "Validating accept dst == connect dst"
+            -- The destination we just accepted should equal the destination we
+            -- connected from.
             connectDestination `shouldBe` acceptDestination
 
-            putStrLn "Now taking connect mvar"
+            -- Now, let's grab the socket we used to connect and validate we can
+            -- send messages in both directions.
             connectSock <- takeMVar connectSockMVar
 
-            putStrLn "Validating sending from accept to connect"
-
             (sent1, recv1) <- testSockets acceptSock connectSock
-            sent1 `shouldBe` recv1
-
-            putStrLn "Validating sending from connect to accept"
-
             (sent2, recv2) <- testSockets connectSock acceptSock
-            sent2 `shouldBe` recv2
 
-            putStrLn "Yay!"
+            sent1 `shouldBe` recv1
+            sent2 `shouldBe` recv2
 
             putMVar finishedTest True
             return ()
@@ -345,28 +332,23 @@ spec = do
           connectConnection destination sessionId connectSockMVar finishedTestMVar pair = do
             P.version pair >> P.connectStream sessionId destination pair
 
-            putStrLn "Storing connect sock..."
             putMVar connectSockMVar (fst pair)
+
+            -- This blocks until the test case is finished, to avoid closing sockets.
             finished <- takeMVar finishedTestMVar
             finished `shouldBe` True
-            putStrLn "closing connected connection.."
 
           phase2 sessionIdAccept publicDestinationAccept pairConnect = do
-            putStrLn "creating connect session"
             (privateDestinationConnect, publicDestinationConnect) <- P.version pairConnect >> P.createDestination Nothing pairConnect
             sessionIdConnect                                      <- P.createSessionWith Nothing privateDestinationConnect socketType pairConnect
 
-            putStrLn "start accepting connections"
-
-            -- Start accepting connections, and wait for a second to get our
-            -- 'accept' to come alive.
             finishedTestMVar <- newEmptyMVar
             connectSockMVar  <- newEmptyMVar
 
+            -- Start accepting connections, and wait for a second to get our
+            -- 'accept' to come alive.
             threadId <- forkIO $ P.connect "127.0.0.1" "7656" (acceptAndTestConnection sessionIdAccept publicDestinationConnect connectSockMVar finishedTestMVar)
             threadDelay 1000000
-
-            putStrLn "start connecting to accept destination"
 
             -- At this point, we should be able to connect
             _ <- P.connect "127.0.0.1" "7656" (connectConnection publicDestinationAccept sessionIdConnect connectSockMVar finishedTestMVar)
