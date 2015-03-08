@@ -2,16 +2,17 @@
 
 module Network.Anonymous.I2P.ProtocolSpec where
 
+import Control.Concurrent.MVar
 import           Control.Concurrent                      (ThreadId, forkIO,
                                                           killThread,
                                                           threadDelay)
-import Control.Concurrent.MVar
 import           Control.Monad.Catch
 import           Control.Monad.IO.Class
 
 import qualified Network.Simple.TCP                      as NS (accept, listen,
                                                                 send)
 import qualified Network.Socket                          as NS (Socket)
+import qualified Network.Socket.ByteString               as NSB (sendAll, recv)
 
 import qualified Network.Anonymous.I2P.Error             as E
 import qualified Network.Anonymous.I2P.Protocol as P     (connect,
@@ -27,9 +28,11 @@ import qualified Network.Anonymous.I2P.Types.Socket      as S
 import qualified Network.Anonymous.I2P.Util              as U
 
 import qualified Data.ByteString                         as BS
+import qualified Data.ByteString.Char8                   as BS8
 import           Data.Maybe                              (fromJust, isJust)
 import qualified Data.UUID                               as Uuid
 import qualified Data.UUID.Util                          as Uuid
+import qualified Data.UUID.V4                            as Uuid
 
 import           Test.Hspec
 
@@ -47,6 +50,35 @@ mockServer port callback = do
 
   liftIO $ threadDelay 500000
   return tid
+
+testSockets :: NS.Socket -> NS.Socket -> IO (BS.ByteString, BS.ByteString)
+testSockets sink source =
+  let uuidAsBs           = BS8.pack . Uuid.toString
+
+      recvAll :: NS.Socket -> Int -> IO BS.ByteString
+      recvAll _ 0 = return (BS.empty)
+      recvAll sock bytes = do
+        putStrLn ("receiving " ++ show bytes ++ " bytes")
+
+        recv <- NSB.recv sock bytes
+
+        putStrLn ("received: " ++ show recv)
+
+        recv' <- recvAll sock (bytes - BS.length recv)
+
+        return (BS.append recv recv')
+
+  in do
+    uuid <- Uuid.nextRandom
+
+    putStrLn ("sending uuid: " ++ show uuid)
+
+    NSB.sendAll sink (uuidAsBs uuid)
+
+    putStrLn ("receiving from source.." ++ show uuid)
+
+    received <- recvAll source (BS.length (uuidAsBs uuid))
+    return (uuidAsBs uuid, received)
 
 spec :: Spec
 spec = do
@@ -283,14 +315,41 @@ spec = do
 
 
   describe "when accepting and connecting to a stream connection" $ do
-    it "accepted connection destination should equal connecting session destination" $
+    it "accepted connection and originating connection should be able to communicate" $
       let socketType = S.VirtualStream
 
-          acceptConnection sessionId acceptedConnection pair =
-            P.version pair >> P.acceptStream sessionId pair >>= putMVar acceptedConnection
+          acceptAndTestConnection sessionId connectDestination connectSockMVar finishedTest pair = do
+            (acceptSock, acceptDestination) <- P.version pair >> P.acceptStream sessionId pair
 
-          connectConnection destination sessionId pair =
+            putStrLn "Validating accept dst == connect dst"
+            connectDestination `shouldBe` acceptDestination
+
+            putStrLn "Now taking connect mvar"
+            connectSock <- takeMVar connectSockMVar
+
+            putStrLn "Validating sending from accept to connect"
+
+            (sent1, recv1) <- testSockets acceptSock connectSock
+            sent1 `shouldBe` recv1
+
+            putStrLn "Validating sending from connect to accept"
+
+            (sent2, recv2) <- testSockets connectSock acceptSock
+            sent2 `shouldBe` recv2
+
+            putStrLn "Yay!"
+
+            putMVar finishedTest True
+            return ()
+
+          connectConnection destination sessionId connectSockMVar finishedTestMVar pair = do
             P.version pair >> P.connectStream sessionId destination pair
+
+            putStrLn "Storing connect sock..."
+            putMVar connectSockMVar (fst pair)
+            finished <- takeMVar finishedTestMVar
+            finished `shouldBe` True
+            putStrLn "closing connected connection.."
 
           phase2 sessionIdAccept publicDestinationAccept pairConnect = do
             putStrLn "creating connect session"
@@ -301,17 +360,17 @@ spec = do
 
             -- Start accepting connections, and wait for a second to get our
             -- 'accept' to come alive.
-            acceptedConnection <- newEmptyMVar
-            threadId <- forkIO $ P.connect "127.0.0.1" "7656" (acceptConnection sessionIdAccept acceptedConnection)
+            finishedTestMVar <- newEmptyMVar
+            connectSockMVar  <- newEmptyMVar
+
+            threadId <- forkIO $ P.connect "127.0.0.1" "7656" (acceptAndTestConnection sessionIdAccept publicDestinationConnect connectSockMVar finishedTestMVar)
             threadDelay 1000000
 
             putStrLn "start connecting to accept destination"
 
             -- At this point, we should be able to connect
-            _ <- P.connect "127.0.0.1" "7656" (connectConnection publicDestinationAccept sessionIdConnect)
-            acceptedPair <- readMVar acceptedConnection
+            _ <- P.connect "127.0.0.1" "7656" (connectConnection publicDestinationAccept sessionIdConnect connectSockMVar finishedTestMVar)
 
-            snd (acceptedPair) `shouldBe` publicDestinationConnect
             killThread threadId
 
           phase1 pairAccept = do
