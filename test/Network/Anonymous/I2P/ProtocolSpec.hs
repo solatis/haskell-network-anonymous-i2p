@@ -258,6 +258,29 @@ spec = do
         -- At this point, the socket is closed and the destination does not any longer exist
         P.connect "127.0.0.1" "7656" (phase1 destination) `shouldThrow` U.isI2PError E.unreachableErrorType
 
+    it "should be returning an unreachable error when we do not accept the connection" $
+      let connectConnection destination sessionId pair =
+            P.version pair >> P.connectStream sessionId destination pair
+
+          phase2 publicDestinationAccept pairConnect = do
+            putStrLn "creating connect session"
+            (privateDestinationConnect, _) <- P.version pairConnect >> P.createDestination Nothing pairConnect
+            sessionIdConnect               <- P.createSessionWith Nothing privateDestinationConnect S.VirtualStream pairConnect
+
+            putStrLn "start connecting to accept destination"
+
+            -- At this point, we should be able to connect
+            P.connect "127.0.0.1" "7656" (connectConnection publicDestinationAccept sessionIdConnect) `shouldThrow` U.isI2PError E.unreachableErrorType
+
+          phase1 pairAccept = do
+            putStrLn "creating accept session"
+            (privateDestinationAccept, publicDestinationAccept) <- P.version pairAccept >> P.createDestination Nothing pairAccept
+
+            _ <- P.createSessionWith Nothing privateDestinationAccept S.VirtualStream pairAccept
+            P.connect "127.0.0.1" "7656" (phase2 publicDestinationAccept)
+
+      in P.connect "127.0.0.1" "7656" phase1
+
 
   describe "when accepting and connecting to a stream connection" $ do
     it "accepted connection destination should equal connecting session destination" $
@@ -285,10 +308,11 @@ spec = do
             putStrLn "start connecting to accept destination"
 
             -- At this point, we should be able to connect
-            connectedConnection <- P.connect "127.0.0.1" "7656" (connectConnection publicDestinationAccept sessionIdConnect)
+            _ <- P.connect "127.0.0.1" "7656" (connectConnection publicDestinationAccept sessionIdConnect)
             acceptedPair <- readMVar acceptedConnection
 
             snd (acceptedPair) `shouldBe` publicDestinationConnect
+            killThread threadId
 
           phase1 pairAccept = do
             putStrLn "creating accept session"
