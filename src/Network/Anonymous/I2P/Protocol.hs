@@ -302,7 +302,7 @@ receiveDatagram :: ( MonadIO m
 receiveDatagram (sock, _) =
 
   let receive :: Int -> IO BS.ByteString
-      receive 0 = return (BS.empty)
+      receive 0 = return BS.empty
       receive bytes = do
         recv  <- D.log
                    ("Reading " ++ show bytes ++ " bytes as datagram")
