@@ -436,3 +436,40 @@ spec = do
             return ()
 
       in mapM performTest socketTypes >> return ()
+
+
+    it "datagram messages have size limitations" $
+      let bigMessage =
+           BS.concat (replicate 3174 "lorem ipsum hello world foo bar baz")
+
+          createSink sinkDestination pairSink = do
+            (publicDestinationSink, _) <- P.version pairSink >> P.createDestination Nothing pairSink
+            putMVar sinkDestination publicDestinationSink
+
+          createSource sourceSession pairSource = do
+            (privateDestinationSource, _) <- P.version pairSource >> P.createDestination Nothing pairSource
+            sessionIdSource <- P.createSessionWith Nothing privateDestinationSource S.DatagramRepliable pairSource
+
+            putMVar sourceSession sessionIdSource
+
+          performTest = do
+            -- Our 'source' socket is the party that sends the datagram
+            sourceSessionId' <- newEmptyMVar
+
+            -- Our 'sink' socket is the party that receives the datagram
+            sinkDestination' <- newEmptyMVar
+
+            _ <- forkIO $ P.connect "127.0.0.1" "7656" (createSink   sinkDestination')
+            _ <- forkIO $ P.connect "127.0.0.1" "7656" (createSource sourceSessionId')
+
+            -- First, we need our source socket and session id, and the destination
+            -- where we should send the message to.
+            sinkDestination <- takeMVar sinkDestination'
+            sourceSessionId <- takeMVar sourceSessionId'
+
+            -- Put a message on top of our source socket
+            P.sendDatagram sourceSessionId sinkDestination bigMessage `shouldThrow`  U.isI2PError E.messageTooLongErrorType
+
+            return ()
+
+      in performTest

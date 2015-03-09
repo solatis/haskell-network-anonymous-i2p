@@ -280,26 +280,29 @@ sendDatagram :: ( MonadIO m
              -> d                                  -- ^ Destination we wish to send message to
              -> BS.ByteString                      -- ^ Message we wish to send
              -> m ()                               -- ^ Returning state
-sendDatagram sessionId destination message =
-  let sendString =
-        BS.concat [ "3.0 "
-                  , BS8.pack sessionId, " "
-                  , D.asByteString destination, " "
-                  , "\n"
-                  , message]
+sendDatagram sessionId destination message
+  | BS.length message > maxLength = E.i2pError (E.mkI2PError E.messageTooLongErrorType)
+  | otherwise =
+      let sendString =
+            BS.concat [ "3.0 "
+                      , BS8.pack sessionId, " "
+                      , D.asByteString destination, " "
+                      , "\n"
+                      , message]
 
-  in do
-    -- Establish connection to UDP SAM service at port 7655
-    addrinfos <- liftIO $ Network.getAddrInfo Nothing (Just "127.0.0.1") (Just "7655")
-    let serveraddr = head addrinfos
-    sock <- liftIO $ Network.socket (Network.addrFamily serveraddr) Network.Datagram Network.defaultProtocol
-    liftIO $ Network.connect sock (Network.addrAddress serveraddr)
+      in do
+        -- Establish connection to UDP SAM service at port 7655
+        addrinfos <- liftIO $ Network.getAddrInfo Nothing (Just "127.0.0.1") (Just "7655")
+        let serveraddr = head addrinfos
+        sock <- liftIO $ Network.socket (Network.addrFamily serveraddr) Network.Datagram Network.defaultProtocol
+        liftIO $ Network.connect sock (Network.addrAddress serveraddr)
 
-    -- And write the message
-    liftIO $ putStrLn ("Sending datagram output: " ++ show sendString)
-    liftIO $ Network.sendAll sock sendString
+        -- And write the message
+        liftIO $ putStrLn ("Sending datagram output: " ++ show sendString)
+        liftIO $ Network.sendAll sock sendString
+        return ()
 
-    return ()
+  where maxLength = 31744
 
 -- | For DatagramRepliable and DatagramAnonymous, receive a message
 receiveDatagram :: ( MonadIO m
