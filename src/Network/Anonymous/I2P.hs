@@ -10,6 +10,7 @@ import           Control.Monad                           (forever)
 import           Control.Monad.Catch
 import           Control.Monad.IO.Class
 import           Control.Concurrent (forkIO)
+import Control.Concurrent.MVar
 
 import qualified Network.Socket                          as Network
 
@@ -47,13 +48,20 @@ serveStream :: ( MonadIO m
             -> ((Network.Socket, D.PublicDestination) -> IO ()) -- ^ Computation to run for accepted connection in a different thread.
             -> m ()
 serveStream localDestination callback =
-  let acceptNext sessionId pair = do
+  let acceptNext sessionId accepted' pair = do
         _            <- P.version pair
         incomingPair <- P.acceptStream sessionId pair
+        putMVar accepted' True
         callback incomingPair
 
-      acceptFork sessionId =
-        liftIO $ P.connect "127.0.0.1" "7656" (acceptNext sessionId)
+      acceptFork sessionId = liftIO $ do
+          accepted' <- newEmptyMVar
+          _ <- forkIO $ P.connect "127.0.0.1" "7656" (acceptNext sessionId accepted')
+
+          -- This blocks until an actual connection is accepted, so we ensure there
+          -- is always just one thread waiting for a new connection.
+          _ <- takeMVar accepted'
+          return ()
 
       bindAddress pair = do
 
@@ -81,7 +89,7 @@ connectStream remoteDestination callback = do
 
 -- | Alternative implementation of connectStream' which requires our local destination
 --   to be explicitly provided. This is useful when you want to specifically define
---   a specific 'S.SignatureType' to use for our local destination.
+--   a specific 'S.SignatureType' to use for the local destination.
 connectStream' :: ( MonadIO m
                   , MonadMask m)
                => D.PrivateDestination                             -- ^ Our local private destination required for bi-directional communication.
