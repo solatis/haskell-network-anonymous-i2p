@@ -3,7 +3,8 @@
 -- | Main interface to I2P
 module Network.Anonymous.I2P ( createDestination
                              , serveStream
-                             , connectStream) where
+                             , connectStream
+                             , connectStream') where
 
 import           Control.Monad                           (forever)
 import           Control.Monad.Catch
@@ -46,13 +47,13 @@ serveStream :: ( MonadIO m
             -> ((Network.Socket, D.PublicDestination) -> IO ()) -- ^ Computation to run for accepted connection in a different thread.
             -> m ()
 serveStream localDestination callback =
-  let acceptFork sessionId pair = do
+  let acceptNext sessionId pair = do
         _            <- P.version pair
         incomingPair <- P.acceptStream sessionId pair
-        liftIO $ forkIO $ callback incomingPair
+        callback incomingPair
 
-      acceptNext sessionId =
-        P.connect "127.0.0.1" "7656" (acceptFork sessionId)
+      acceptFork sessionId =
+        liftIO $ P.connect "127.0.0.1" "7656" (acceptNext sessionId)
 
       bindAddress pair = do
 
@@ -62,19 +63,32 @@ serveStream localDestination callback =
 
         -- Using this session, enter a never-endling loop accepting incoming I2P
         -- connections on this address.
-        forever $ acceptNext sessionId
+        forever $ acceptFork sessionId
 
   in P.connect "127.0.0.1" "7656" bindAddress
 
 -- | Connects to a remote 'S.VirtualStream' host. Any acquired resources are
---   cleaned up when the computation ends.
+--   cleaned up when the computation ends. Automatically creates a local return
+--   destination required for bi-directional communication.
 connectStream :: ( MonadIO m
                  , MonadMask m)
-              => D.PrivateDestination                             -- ^ Our local private destination required for bi-directional communication.
-              -> D.PublicDestination                              -- ^ Destination to connect to.
+              => D.PublicDestination                              -- ^ Destination to connect to.
               -> ((Network.Socket, D.PublicDestination) -> IO ()) -- ^ Computation to run once connection has been established.
               -> m ()
-connectStream localDestination remoteDestination callback =
+connectStream remoteDestination callback = do
+  (localDestination, _ ) <- createDestination Nothing
+  connectStream' localDestination remoteDestination callback
+
+-- | Alternative implementation of connectStream' which requires our local destination
+--   to be explicitly provided. This is useful when you want to specifically define
+--   a specific 'S.SignatureType' to use for our local destination.
+connectStream' :: ( MonadIO m
+                  , MonadMask m)
+               => D.PrivateDestination                             -- ^ Our local private destination required for bi-directional communication.
+               -> D.PublicDestination                              -- ^ Destination to connect to.
+               -> ((Network.Socket, D.PublicDestination) -> IO ()) -- ^ Computation to run once connection has been established.
+               -> m ()
+connectStream' localDestination remoteDestination callback =
   let connectAddress sessionId pair = do
         -- Connect to the remote destination within our session.
         _         <- P.version pair
