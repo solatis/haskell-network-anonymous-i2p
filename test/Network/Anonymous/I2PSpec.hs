@@ -4,7 +4,6 @@ module Network.Anonymous.I2PSpec where
 
 import           Control.Concurrent.MVar
 import           Control.Concurrent                      (forkIO,
-                                                          killThread,
                                                           threadDelay)
 import qualified Network.Socket.ByteString as Network
 import           Data.Maybe                              (isJust, isNothing)
@@ -38,8 +37,6 @@ spec = do
         pubDestValidate0 `shouldBe` pubDest0
         pubDestValidate1 `shouldBe` pubDest1
 
-        killThread threadId
-
     it "sockets should be able to communicate" $
       let sendResponse (sock, _) = do
             putStrLn "Now sending data.."
@@ -64,9 +61,6 @@ spec = do
 
         response <- takeMVar response'
         response `shouldBe` "Hello, world!"
-
-        killThread threadId
-
 
   describe "when serving datagrams connections" $ do
     it "messages are received along with their reply address or not" $
@@ -103,9 +97,6 @@ spec = do
             case socketType of
              S.DatagramAnonymous -> pubDest1 `shouldSatisfy` isNothing
              S.DatagramRepliable -> pubDest1 `shouldSatisfy` isJust
-
-            killThread threadId1
-            killThread threadId2
 
             return ()
 
