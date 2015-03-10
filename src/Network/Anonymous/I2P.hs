@@ -9,7 +9,8 @@ module Network.Anonymous.I2P ( createDestination
                              , sendDatagram
                              , sendDatagram') where
 
-import           Control.Concurrent                      (forkIO)
+import           Control.Concurrent                      ( forkIO
+                                                         , threadDelay)
 import           Control.Concurrent.MVar
 import           Control.Monad                           (forever)
 import           Control.Monad.Catch
@@ -185,5 +186,10 @@ sendDatagram' localDestination remoteDestination socketType message =
         sessionId <- P.createSessionWith Nothing localDestination socketType pair
 
         P.sendDatagram sessionId remoteDestination message
+
+        -- In order to avoid a race condition, let's sleep for a little while so the
+        -- UDP message arrives before the socket is closed.
+        liftIO $ threadDelay 1000000
+
 
   in P.connect "127.0.0.1" "7656" sendMessage
