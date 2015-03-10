@@ -3,13 +3,15 @@
 module Network.Anonymous.I2PSpec where
 
 import           Control.Concurrent.MVar
-import           Control.Concurrent                      (ThreadId, forkIO,
+import           Control.Concurrent                      (forkIO,
                                                           killThread,
                                                           threadDelay)
 import qualified Network.Socket.ByteString as Network
+import           Data.Maybe                              (isJust, isNothing)
 
-import           Network.Anonymous.I2P
-import           Test.Hspec
+import            Network.Anonymous.I2P
+import qualified  Network.Anonymous.I2P.Types.Socket as S
+import            Test.Hspec
 
 spec :: Spec
 spec = do
@@ -64,3 +66,47 @@ spec = do
         response `shouldBe` "Hello, world!"
 
         killThread threadId
+
+
+  describe "when serving datagrams connections" $ do
+    it "messages are received along with their reply address or not" $
+      let socketTypes = [ S.DatagramAnonymous
+                        , S.DatagramRepliable]
+
+          receiveMessage msg' pubDest' (msg, pubDest) = do
+            putStrLn ("received message: " ++ show msg)
+            putMVar msg'     msg
+            putMVar pubDest' pubDest
+            putStrLn ("stored mvars")
+
+          retrySendMessage dest socketType msg = do
+            threadDelay 5000000
+            sendDatagram dest socketType msg
+
+            -- Enter recursion
+            retrySendMessage dest socketType msg
+
+          performTest socketType = do
+            (privDest0, pubDest0) <- createDestination Nothing
+
+            msg'      <- newEmptyMVar
+            pubDest1' <- newEmptyMVar
+
+            threadId1 <- forkIO $ serveDatagram    privDest0 socketType (receiveMessage msg' pubDest1')
+            threadId2 <- forkIO $ retrySendMessage pubDest0  socketType "Hello, world!\n"
+
+            msg      <- takeMVar msg'
+            pubDest1 <- takeMVar pubDest1'
+
+            msg `shouldBe` "Hello, world!\n"
+
+            case socketType of
+             S.DatagramAnonymous -> pubDest1 `shouldSatisfy` isNothing
+             S.DatagramRepliable -> pubDest1 `shouldSatisfy` isJust
+
+            killThread threadId1
+            killThread threadId2
+
+            return ()
+
+      in mapM performTest socketTypes >> return ()

@@ -55,7 +55,6 @@ expectResponse :: ( MonadIO m
                -> (BS.ByteString, BS.ByteString)
                -> m [Ast.Token]
 expectResponse sock output (first, second) = do
-    liftIO $ putStrLn ("Sending output: " ++ show output)
     liftIO $ Network.sendAll sock output
     res <- NA.parseOne sock (Atto.parse Parser.line)
 
@@ -228,7 +227,6 @@ acceptStream sessionId (sock, _) =
 
         in do
           buf <- NA.parseOne s (Atto.parse lineParser)
-          liftIO $ putStrLn ("Got destination in buffer: " ++ show buf)
           return (D.PublicDestination buf)
 
   in do
@@ -298,7 +296,6 @@ sendDatagram sessionId destination message
         liftIO $ Network.connect sock (Network.addrAddress serveraddr)
 
         -- And write the message
-        liftIO $ putStrLn ("Sending datagram output: " ++ show sendString)
         liftIO $ Network.sendAll sock sendString
         return ()
 

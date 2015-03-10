@@ -4,14 +4,18 @@
 module Network.Anonymous.I2P ( createDestination
                              , serveStream
                              , connectStream
-                             , connectStream') where
+                             , connectStream'
+                             , serveDatagram
+                             , sendDatagram
+                             , sendDatagram') where
 
+import           Control.Concurrent                      (forkIO)
+import           Control.Concurrent.MVar
 import           Control.Monad                           (forever)
 import           Control.Monad.Catch
 import           Control.Monad.IO.Class
-import           Control.Concurrent (forkIO)
-import Control.Concurrent.MVar
 
+import qualified Data.ByteString                         as BS
 import qualified Network.Socket                          as Network
 
 import qualified Network.Anonymous.I2P.Protocol          as P
@@ -87,9 +91,9 @@ connectStream remoteDestination callback = do
   (localDestination, _ ) <- createDestination Nothing
   connectStream' localDestination remoteDestination callback
 
--- | Alternative implementation of connectStream' which requires our local destination
+-- | Alternative implementation of 'connectStream' which requires our local destination
 --   to be explicitly provided. This is useful when you want to specifically define
---   a specific 'S.SignatureType' to use for the local destination.
+--   a specific 'D.SignatureType' to use for the local destination.
 connectStream' :: ( MonadIO m
                   , MonadMask m)
                => D.PrivateDestination                             -- ^ Our local private destination required for bi-directional communication.
@@ -116,3 +120,70 @@ connectStream' localDestination remoteDestination callback =
         P.connect "127.0.0.1" "7656" (connectAddress sessionId)
 
   in P.connect "127.0.0.1" "7656" bindAddress
+
+-- | Creates an asynchronous server that processes incoming datagram messages in
+--   their own thread of control.
+serveDatagram :: ( MonadIO m
+                 , MonadMask m)
+              => D.PrivateDestination                                  -- ^ Destination we will accept connections at.
+              -> S.SocketType                                          -- ^ Socket type to use. Can be 'S.DatagramRepliable' or 'S.DatagramAnonymous'
+              -> ((BS.ByteString, Maybe D.PublicDestination) -> IO ()) -- ^ Computation to run for accepted connection in a different thread.
+              -> m ()
+serveDatagram localDestination socketType callback =
+  let receiveNext received' pair = do
+        res  <- P.receiveDatagram pair
+        putMVar received' True
+        callback res
+
+      receiveFork pair = liftIO $ do
+          received' <- newEmptyMVar
+          _ <- forkIO $ receiveNext received' pair
+
+          -- This blocks until an actual datagram is received, so we ensure there
+          -- is always just one thread waiting for a new connection.
+          _ <- takeMVar received'
+          return ()
+
+      bindAddress pair = do
+
+        -- Create new I2P VirtualStream session.
+        _ <- P.version pair
+        _ <- P.createSessionWith Nothing localDestination socketType pair
+
+        -- Using this session, enter a never-endling loop accepting incoming I2P
+        -- connections on this address.
+        forever $ receiveFork pair
+
+  in P.connect "127.0.0.1" "7656" bindAddress
+
+-- | Sends a datagram to a remote destination. Optionally sends a return address.
+sendDatagram :: ( MonadIO m
+                , MonadMask m)
+             => D.PublicDestination -- ^ Destination to send message to
+             -> S.SocketType        -- ^ Socket type to use. Can be 'S.DatagramRepliable' or 'S.DatagramAnonymous'
+             -> BS.ByteString       -- ^ The message to send
+             -> m ()
+sendDatagram remoteDestination repliable message = do
+  (localDestination, _ ) <- createDestination Nothing
+  sendDatagram' localDestination remoteDestination repliable message
+
+-- | Alternative implementation of 'sendDatagram' which requires our local destination
+--   to be explicitly provided. This is useful when you want to specifically define
+--   a specific 'D.SignatureType' to use for the local destination.
+sendDatagram' :: ( MonadIO m
+                 , MonadMask m)
+              => D.PrivateDestination -- ^ Our local private destination required for bi-directional communication.
+              -> D.PublicDestination  -- ^ Destination to send message to
+              -> S.SocketType         -- ^ Socket type to use. Can be 'S.DatagramRepliable' or 'S.DatagramAnonymous'
+              -> BS.ByteString        -- ^ The message to send
+              -> m ()
+sendDatagram' localDestination remoteDestination socketType message =
+  let sendMessage pair = do
+
+        -- Create new I2P VirtualStream session.
+        _         <- P.version pair
+        sessionId <- P.createSessionWith Nothing localDestination socketType pair
+
+        P.sendDatagram sessionId remoteDestination message
+
+  in P.connect "127.0.0.1" "7656" sendMessage
