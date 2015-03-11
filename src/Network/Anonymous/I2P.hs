@@ -46,9 +46,9 @@ import qualified Network.Anonymous.I2P.Types.Socket      as S
 -- $i2p-introduction
 --
 -- This module is an implementation of the SAMv3 protocol for I2P. I2P is an
--- internet anonimization network, similar to Tor. Whereas Tor is intended for
--- privately using the internet, I2P is more application oriented, and is intended
--- for private communication between applications.
+-- internet anonimization network, similar to Tor. Whereas Tor is primarily
+-- intended for privately browsing the world wide web, I2P is more application
+-- oriented, and is intended for private communication between applications.
 --
 -- The general idea of the SAM interface to I2P is that you establish a master
 -- connection with the SAM bridge, and create new, short-lived connections with
