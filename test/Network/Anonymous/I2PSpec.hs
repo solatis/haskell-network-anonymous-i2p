@@ -27,10 +27,10 @@ spec = do
         pubDestValidate0' <- newEmptyMVar
         pubDestValidate1' <- newEmptyMVar
 
-        threadId <- forkIO $ serveStream   privDest0          (storeDestination pubDestValidate1')
+        threadId <- forkIO $ withSession' S.VirtualStream (privDest0, pubDest0) (\ctx -> serveStream ctx (storeDestination pubDestValidate1'))
 
         threadDelay 30000000
-        connectStream' privDest1 pubDest0 (storeDestination pubDestValidate0')
+        withSession' S.VirtualStream (privDest1, pubDest1) (\ctx -> connectStream ctx pubDest0 (storeDestination pubDestValidate0'))
 
         pubDestValidate0 <- takeMVar pubDestValidate0'
         pubDestValidate1 <- takeMVar pubDestValidate1'
@@ -57,10 +57,10 @@ spec = do
 
         response' <- newEmptyMVar
 
-        threadId <- forkIO $ serveStream privDest0 sendResponse
+        threadId <- forkIO $ withSession' S.VirtualStream (privDest0, pubDest0) (\ctx -> serveStream ctx sendResponse)
 
         threadDelay 30000000
-        connectStream pubDest0 (readResponse response')
+        withSession S.VirtualStream (\ctx -> connectStream ctx pubDest0 (readResponse response'))
 
         response <- takeMVar response'
         response `shouldBe` "Hello, world!"
@@ -78,12 +78,12 @@ spec = do
             putMVar pubDest' pubDest
             putStrLn ("stored mvars")
 
-          retrySendMessage dest socketType msg = do
+          retrySendMessage ctx dest msg = do
             threadDelay 5000000
-            sendDatagram dest socketType msg
+            sendDatagram ctx dest msg
 
             -- Enter recursion
-            retrySendMessage dest socketType msg
+            retrySendMessage ctx dest msg
 
           performTest socketType = do
             (privDest0, pubDest0) <- createDestination Nothing
@@ -91,8 +91,8 @@ spec = do
             msg'      <- newEmptyMVar
             pubDest1' <- newEmptyMVar
 
-            threadId1 <- forkIO $ serveDatagram    privDest0 socketType (receiveMessage msg' pubDest1')
-            threadId2 <- forkIO $ retrySendMessage pubDest0  socketType "Hello, world!\n"
+            threadId1 <- forkIO $ withSession' socketType (privDest0, pubDest0) (\ctx -> serveDatagram ctx (receiveMessage  msg' pubDest1'))
+            threadId2 <- forkIO $ withSession socketType (\ctx -> retrySendMessage ctx pubDest0 "Hello, world!\n")
 
             msg      <- readMVar msg'
             pubDest1 <- readMVar pubDest1'

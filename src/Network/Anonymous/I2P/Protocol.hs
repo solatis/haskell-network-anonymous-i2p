@@ -70,7 +70,7 @@ expectResponse sock output (first, second) = do
 --   moment.
 version :: ( MonadIO m
            , MonadMask m)
-        => (Network.Socket, Network.SockAddr) -- ^ Our connection with SAM bridge
+        => Network.Socket                     -- ^ Our connection with SAM bridge
         -> m [Integer]                        -- ^ Version agreed upon, stores as a list of integers; for
                                               --   example, [3,1] means version 3.1
 version = versionWithConstraint ([3,1], [3,1])
@@ -82,10 +82,10 @@ versionWithConstraint :: ( MonadIO m
                       => ([Integer], [Integer])             -- ^ Min/max version we want to agree on, stored as a list
                                                             --   of integers. For example, ([3,0], [3,1]) means min
                                                             --   version 3.0, max version 3.1
-                      -> (Network.Socket, Network.SockAddr) -- ^ Our connection with SAM bridge
+                      -> Network.Socket                     -- ^ Our connection with SAM bridge
                       -> m [Integer]                        -- ^ Version agreed upon, stores as a list of integers; for
                                                             --   example, [3,1] means version 3.1
-versionWithConstraint (minV, maxV) (sock, _) =
+versionWithConstraint (minV, maxV) sock =
   let versionToString :: [Integer] -> BS.ByteString
       versionToString vs =
         let textList :: [Integer] -> [T.Text]
@@ -116,9 +116,9 @@ versionWithConstraint (minV, maxV) (sock, _) =
 createDestination :: ( MonadIO m
                      , MonadMask m)
                   => Maybe D.SignatureType
-                  -> (Network.Socket, Network.SockAddr)
+                  -> Network.Socket
                   -> m (D.PrivateDestination, D.PublicDestination)
-createDestination signature (sock, _) =
+createDestination signature sock =
   let signatureToString :: Maybe D.SignatureType -> BS.ByteString
       signatureToString Nothing                     = ""
       signatureToString (Just D.DsaSha1)            = "SIGNATURE_TYPE=DSA_SHA1"
@@ -152,11 +152,11 @@ createDestination signature (sock, _) =
 createSession :: ( MonadIO m
                  , MonadMask m)
               => S.SocketType                                          -- ^ I2P socket type to create
-              -> (Network.Socket, Network.SockAddr)                    -- ^ Our connection with SAM bridge
+              -> Network.Socket                                        -- ^ Our connection with SAM bridge
               -> m (String, D.PrivateDestination, D.PublicDestination) -- ^ Our session id and our private destination key
-createSession socketType pair = do
-  (privDestination, pubDestination) <- createDestination Nothing pair
-  sessionId                         <- createSessionWith Nothing privDestination socketType pair
+createSession socketType sock = do
+  (privDestination, pubDestination) <- createDestination Nothing sock
+  sessionId                         <- createSessionWith Nothing privDestination socketType sock
 
   return (sessionId, privDestination, pubDestination)
 
@@ -169,20 +169,20 @@ createSessionWith :: ( MonadIO m
                                                         --   unique session id is created.
                   -> d                                  -- ^ Destination to use.
                   -> S.SocketType                       -- ^ I2P socket type to create
-                  -> (Network.Socket, Network.SockAddr) -- ^ Our connection with SAM bridge
+                  -> Network.Socket                     -- ^ Our connection with SAM bridge
                   -> m String                           -- ^ Our session id
 
 -- Specialization where no session is was provided. In this case, we create a
 -- new session id based on a UUID, and enter recursion with the fresh session id
 -- provided.
-createSessionWith Nothing destination socketType pair = do
+createSessionWith Nothing destination socketType sock = do
   uuid <- liftIO Uuid.nextRandom
 
   D.log
     ("created session id: " ++ show uuid)
-    createSessionWith (Just (Uuid.toString uuid)) destination socketType pair
+    createSessionWith (Just (Uuid.toString uuid)) destination socketType sock
 
-createSessionWith (Just sessionId) destination socketType (sock, _) =
+createSessionWith (Just sessionId) destination socketType sock =
   let socketTypeToString :: S.SocketType -> BS.ByteString
       socketTypeToString S.VirtualStream     = "STREAM"
       socketTypeToString S.DatagramRepliable = "DATAGRAM"
@@ -209,9 +209,9 @@ createSessionWith (Just sessionId) destination socketType (sock, _) =
 acceptStream :: ( MonadIO m
                 , MonadMask m)
              => String                                  -- ^ Our session id
-             -> (Network.Socket, Network.SockAddr)      -- ^ Our connection with SAM bridge
+             -> Network.Socket                          -- ^ Our connection with SAM bridge
              -> m (Network.Socket, D.PublicDestination) -- ^ Returns as soon as connection has been accepted
-acceptStream sessionId (sock, _) =
+acceptStream sessionId sock =
   let acceptString :: String -> BS.ByteString
       acceptString s =
         BS.concat [ "STREAM ACCEPT "
@@ -246,9 +246,9 @@ connectStream :: ( MonadIO m
                  , D.Destination d)
               => String                             -- ^ Our session id
               -> d                                  -- ^ Destination we wish to connect to
-              -> (Network.Socket, Network.SockAddr) -- ^ Our connection with SAM bridge
+              -> Network.Socket                     -- ^ Our connection with SAM bridge
               -> m ()                               -- ^ Returning state
-connectStream sessionId destination (sock, _) =
+connectStream sessionId destination sock =
   let connectString :: String -> BS.ByteString
       connectString s =
         BS.concat [ "STREAM CONNECT "
@@ -304,9 +304,9 @@ sendDatagram sessionId destination message
 -- | For DatagramRepliable and DatagramAnonymous, receive a message
 receiveDatagram :: ( MonadIO m
                    , MonadMask m)
-                => (Network.Socket, Network.SockAddr)           -- ^ Our connection with SAM bridge
+                => Network.Socket                               -- ^ Our connection with SAM bridge
                 -> m (BS.ByteString, Maybe D.PublicDestination) -- ^ Received buffer, possibly with a reply destination
-receiveDatagram (sock, _) =
+receiveDatagram sock =
 
   let receive :: Int -> IO BS.ByteString
       receive 0 = return BS.empty

@@ -45,8 +45,8 @@ mockServer :: ( MonadIO m
            -> m ThreadId
 mockServer port callback = do
   tid <- liftIO $ forkIO $
-    NS.listen "*" port (\(lsock, _) -> NS.accept lsock (\pair -> do
-                                                           _ <- callback (fst pair)
+    NS.listen "*" port (\(lsock, _) -> NS.accept lsock (\(sock, _) -> do
+                                                           _ <- callback sock
                                                            threadDelay 1000000
                                                            return ()))
 
@@ -84,25 +84,25 @@ spec = do
 
   describe "when negotiating protocol version" $ do
     it "should use protocol version 3.1 when connecting to SAM" $
-      P.connect "127.0.0.1" "7656" P.version `shouldReturn` [3,1]
+      P.connect "127.0.0.1" "7656" (P.version . fst) `shouldReturn` [3,1]
 
     it "should return an arbitrary version if we supply it" $
       let serverSock = flip NS.send "HELLO REPLY RESULT=OK VERSION=1.2\n"
 
       in do
         thread <- liftIO $ mockServer "4322" serverSock
-        P.connect "127.0.0.1" "4322" P.version `shouldReturn` [1,2]
+        P.connect "127.0.0.1" "4322" (P.version . fst) `shouldReturn` [1,2]
         killThread thread
 
     it "should use throw an error if no correct version can be found" $
-      P.connect "127.0.0.1" "7656" (P.versionWithConstraint ([4,0], [4,1])) `shouldThrow` U.isI2PError E.noVersionErrorType
+      P.connect "127.0.0.1" "7656" (P.versionWithConstraint ([4,0], [4,1]) . fst) `shouldThrow` U.isI2PError E.noVersionErrorType
 
     it "should throw an error when the host sends an incomplete reply" $
       let serverSock = flip NS.send "HELLO VERSION REPLY "
 
       in do
         thread <- liftIO $ mockServer "4323" serverSock
-        P.connect "127.0.0.1" "4323" P.version `shouldThrow` anyIOException -- thrown by parser, not our own library
+        P.connect "127.0.0.1" "4323" (P.version . fst) `shouldThrow` anyIOException -- thrown by parser, not our own library
         killThread thread
 
     it "should throw an error when the host responds with an error" $
@@ -110,13 +110,13 @@ spec = do
 
       in do
         thread <- liftIO $ mockServer "4324" serverSock
-        P.connect "127.0.0.1" "4324" P.version `shouldThrow` U.isI2PError E.protocolErrorType
+        P.connect "127.0.0.1" "4324" (P.version . fst) `shouldThrow` U.isI2PError E.protocolErrorType
         killThread thread
 
   describe "when creating a destination" $ do
     it "should be able to create new destinations with all signature types" $
-      let createSession signatureType pair = do
-            (priv, pub) <- P.version pair >> P.createDestination (Just signatureType) pair
+      let createSession signatureType (sock, _) = do
+            (priv, pub) <- P.version sock >> P.createDestination (Just signatureType) sock
             return ((D.asByteString priv, D.asByteString pub))
 
           performTest signatureType = do
@@ -142,9 +142,9 @@ spec = do
 
   describe "when creating a session" $ do
     it "should be able to create all types of socket types" $
-      let createSession socketType pair = do
-            (privDestination, _) <- P.version pair >> P.createDestination Nothing pair
-            P.createSessionWith Nothing privDestination socketType pair
+      let createSession socketType (sock, _) = do
+            (privDestination, _) <- P.version sock >> P.createDestination Nothing sock
+            P.createSessionWith Nothing privDestination socketType sock
 
           performTest socketType = do
             sessionId <- P.connect "127.0.0.1" "7656" (createSession socketType)
@@ -159,46 +159,44 @@ spec = do
       in  mapM performTest socketTypes >> return ()
 
     it "should throw a protocol error when creating a session twice" $
-      let createSession     socketType pair           = P.createSession socketType pair
-
-          performTest socketType pair = do
+      let performTest socketType (sock, _) = do
             -- Note that we have to be inside the same connection here.
-            _ <- P.version pair
-            _ <- createSession socketType pair
-            createSession socketType pair `shouldThrow` U.isI2PError E.protocolErrorType
+            _ <- P.version sock
+            _ <- P.createSession socketType sock
+            P.createSession socketType sock `shouldThrow` U.isI2PError E.protocolErrorType
 
       in P.connect "127.0.0.1" "7656" (performTest S.VirtualStream)
 
     it "should throw a protocol error when creating a session with a duplicated nickname id" $
-      let socketType = S.VirtualStream
-          phase1 pair1 = do
-            (privDestination1, _) <- P.version pair1 >> P.createDestination Nothing pair1
-            sessionId1            <- P.createSessionWith Nothing privDestination1 socketType pair1
+      let socketType   = S.VirtualStream
+          phase1 (sock1, _) = do
+            (privDestination1, _) <- P.version sock1 >> P.createDestination Nothing sock1
+            sessionId1            <- P.createSessionWith Nothing privDestination1 socketType sock1
 
             P.connect "127.0.0.1" "7656" (phase2 sessionId1)
 
-          phase2 sessionId1 pair2 = do
-            (privDestination2, _) <- P.version pair2 >> P.createDestination Nothing pair2
-            P.createSessionWith (Just sessionId1) privDestination2 socketType pair2 `shouldThrow` U.isI2PError E.duplicatedSessionIdErrorType
+          phase2 sessionId1 (sock2, _) = do
+            (privDestination2, _) <- P.version sock2 >> P.createDestination Nothing sock2
+            P.createSessionWith (Just sessionId1) privDestination2 socketType sock2 `shouldThrow` U.isI2PError E.duplicatedSessionIdErrorType
 
       in P.connect "127.0.0.1" "7656" phase1
 
     it "should throw an error when providing an invalid destination key" $
-      let performTest socketType pair = do
-            _ <- P.version pair
-            P.createSessionWith Nothing (D.PrivateDestination "123invalid") socketType pair `shouldThrow` U.isI2PError E.invalidKeyErrorType
+      let performTest socketType (sock, _) = do
+            _ <- P.version sock
+            P.createSessionWith Nothing (D.PrivateDestination "123invalid") socketType sock `shouldThrow` U.isI2PError E.invalidKeyErrorType
 
       in P.connect "127.0.0.1" "7656" (performTest S.VirtualStream)
 
     it "should throw a protocol error when creating a session with a duplicated destination key" $
       let socketType = S.VirtualStream
 
-          phase2 privDestination1 pair2 = do
-            (P.version pair2 >> P.createSessionWith Nothing privDestination1 socketType pair2) `shouldThrow` U.isI2PError E.duplicatedDestinationErrorType
+          phase2 privDestination1 (sock2, _) = do
+            (P.version sock2 >> P.createSessionWith Nothing privDestination1 socketType sock2) `shouldThrow` U.isI2PError E.duplicatedDestinationErrorType
 
-          phase1 pair1 = do
-            (privDestination1, _) <- P.version pair1 >> P.createDestination Nothing pair1
-            _                     <- P.createSessionWith Nothing privDestination1 socketType pair1
+          phase1 (sock1, _) = do
+            (privDestination1, _) <- P.version sock1 >> P.createDestination Nothing sock1
+            _                     <- P.createSessionWith Nothing privDestination1 socketType sock1
 
             P.connect "127.0.0.1" "7656" (phase2 privDestination1)
 
@@ -206,7 +204,7 @@ spec = do
 
   describe "when accepting a stream connection" $ do
     it "should be returning an error when we try to accept before creating a session" $
-      let phase1 pair = P.version pair >> P.acceptStream "nonExistingSessionId" pair
+      let phase1 (sock, _) = P.version sock >> P.acceptStream "nonExistingSessionId" sock
 
       in P.connect "127.0.0.1" "7656" phase1 `shouldThrow` U.isI2PError E.invalidIdErrorType
 
@@ -214,11 +212,11 @@ spec = do
       let socketTypes = [ S.DatagramRepliable
                         , S.DatagramAnonymous ]
 
-          phase2 sessionId pair = P.version pair >> P.acceptStream sessionId pair
+          phase2 sessionId (sock, _) = P.version sock >> P.acceptStream sessionId sock
 
-          phase1 socketType pair = do
-            (privDestination, _) <- P.version pair >> P.createDestination Nothing pair
-            sessionId <- P.createSessionWith Nothing privDestination socketType pair
+          phase1 socketType (sock, _) = do
+            (privDestination, _) <- P.version sock >> P.createDestination Nothing sock
+            sessionId <- P.createSessionWith Nothing privDestination socketType sock
 
             P.connect "127.0.0.1" "7656" (phase2 sessionId)
 
@@ -228,7 +226,7 @@ spec = do
 
   describe "when connecting to a stream connection" $ do
     it "should be returning an error when we try to connect before creating a session" $
-      let phase1 pair = P.version pair >> P.connectStream "nonExistingSessionId" (D.PublicDestination "123") pair
+      let phase1 (sock, _) = P.version sock >> P.connectStream "nonExistingSessionId" (D.PublicDestination "123") sock
 
       in P.connect "127.0.0.1" "7656" phase1 `shouldThrow` U.isI2PError E.invalidIdErrorType
 
@@ -236,11 +234,11 @@ spec = do
       let socketTypes = [ S.DatagramRepliable
                         , S.DatagramAnonymous ]
 
-          phase2 sessionId pair = P.version pair >> P.connectStream sessionId (D.PublicDestination "123") pair
+          phase2 sessionId (sock, _) = P.version sock >> P.connectStream sessionId (D.PublicDestination "123") sock
 
-          phase1 socketType pair = do
-            (privDestination, _) <- P.version pair >> P.createDestination Nothing pair
-            sessionId <- P.createSessionWith Nothing privDestination socketType pair
+          phase1 socketType (sock, _) = do
+            (privDestination, _) <- P.version sock >> P.createDestination Nothing sock
+            sessionId <- P.createSessionWith Nothing privDestination socketType sock
 
             P.connect "127.0.0.1" "7656" (phase2 sessionId)
 
@@ -251,11 +249,11 @@ spec = do
     it "should be returning an error when we try to connect with a stream with an invalid destination type" $
       let socketType = S.VirtualStream
 
-          phase2 sessionId pair = P.version pair >> P.connectStream sessionId (D.PublicDestination "invalidDestination") pair
+          phase2 sessionId (sock, _) = P.version sock >> P.connectStream sessionId (D.PublicDestination "invalidDestination") sock
 
-          phase1 pair = do
-            (privDestination, _) <- P.version pair >> P.createDestination Nothing pair
-            sessionId <- P.createSessionWith Nothing privDestination socketType pair
+          phase1 (sock, _) = do
+            (privDestination, _) <- P.version sock >> P.createDestination Nothing sock
+            sessionId <- P.createSessionWith Nothing privDestination socketType sock
 
             P.connect "127.0.0.1" "7656" (phase2 sessionId)
 
@@ -265,15 +263,15 @@ spec = do
       let socketType = S.VirtualStream
 
           createDestination = do
-            P.connect "127.0.0.1" "7656" (\pair -> do
-                                             (_, destination) <- P.version pair >> P.createDestination Nothing pair
+            P.connect "127.0.0.1" "7656" (\(sock, _) -> do
+                                             (_, destination) <- P.version sock >> P.createDestination Nothing sock
                                              return (destination))
 
-          phase2 dest sessionId pair = P.version pair >> P.connectStream sessionId dest pair
+          phase2 dest sessionId (sock, _) = P.version sock >> P.connectStream sessionId dest sock
 
-          phase1 dest pair = do
-            (privateDestination, _) <- P.version pair >> P.createDestination Nothing pair
-            sessionId               <- P.createSessionWith Nothing privateDestination socketType pair
+          phase1 dest (sock, _) = do
+            (privateDestination, _) <- P.version sock >> P.createDestination Nothing sock
+            sessionId               <- P.createSessionWith Nothing privateDestination socketType sock
 
             P.connect "127.0.0.1" "7656" (phase2 dest sessionId)
 
@@ -284,24 +282,24 @@ spec = do
         P.connect "127.0.0.1" "7656" (phase1 destination) `shouldThrow` U.isI2PError E.unreachableErrorType
 
     it "should be returning an unreachable error when we do not accept the connection" $
-      let connectConnection destination sessionId pair =
-            P.version pair >> P.connectStream sessionId destination pair
+      let connectConnection destination sessionId (sock, _) =
+            P.version sock >> P.connectStream sessionId destination sock
 
-          phase2 publicDestinationAccept pairConnect = do
+          phase2 publicDestinationAccept (sockConnect, _) = do
             putStrLn "creating connect session"
-            (privateDestinationConnect, _) <- P.version pairConnect >> P.createDestination Nothing pairConnect
-            sessionIdConnect               <- P.createSessionWith Nothing privateDestinationConnect S.VirtualStream pairConnect
+            (privateDestinationConnect, _) <- P.version sockConnect >> P.createDestination Nothing sockConnect
+            sessionIdConnect               <- P.createSessionWith Nothing privateDestinationConnect S.VirtualStream sockConnect
 
             putStrLn "start connecting to accept destination"
 
             -- At this point, we should be able to connect
             P.connect "127.0.0.1" "7656" (connectConnection publicDestinationAccept sessionIdConnect) `shouldThrow` U.isI2PError E.unreachableErrorType
 
-          phase1 pairAccept = do
+          phase1 (sockAccept, _) = do
             putStrLn "creating accept session"
-            (privateDestinationAccept, publicDestinationAccept) <- P.version pairAccept >> P.createDestination Nothing pairAccept
+            (privateDestinationAccept, publicDestinationAccept) <- P.version sockAccept >> P.createDestination Nothing sockAccept
 
-            _ <- P.createSessionWith Nothing privateDestinationAccept S.VirtualStream pairAccept
+            _ <- P.createSessionWith Nothing privateDestinationAccept S.VirtualStream sockAccept
             P.connect "127.0.0.1" "7656" (phase2 publicDestinationAccept)
 
       in P.connect "127.0.0.1" "7656" phase1
@@ -311,8 +309,8 @@ spec = do
     it "accepted connection and originating connection should be able to communicate" $
       let socketType = S.VirtualStream
 
-          acceptAndTestConnection sessionId connectDestination connectSockMVar finishedTest pair = do
-            (acceptSock, acceptDestination) <- P.version pair >> P.acceptStream sessionId pair
+          acceptAndTestConnection sessionId connectDestination connectSockMVar finishedTest (sock, _) = do
+            (acceptSock, acceptDestination) <- P.version sock >> P.acceptStream sessionId sock
 
             -- The destination we just accepted should equal the destination we
             -- connected from.
@@ -331,18 +329,18 @@ spec = do
             putMVar finishedTest True
             return ()
 
-          connectConnection destination sessionId connectSockMVar finishedTestMVar pair = do
-            P.version pair >> P.connectStream sessionId destination pair
+          connectConnection destination sessionId connectSockMVar finishedTestMVar (sock, _) = do
+            P.version sock >> P.connectStream sessionId destination sock
 
-            putMVar connectSockMVar (fst pair)
+            putMVar connectSockMVar sock
 
             -- This blocks until the test case is finished, to avoid closing sockets.
             finished <- takeMVar finishedTestMVar
             finished `shouldBe` True
 
-          phase2 sessionIdAccept publicDestinationAccept pairConnect = do
-            (privateDestinationConnect, publicDestinationConnect) <- P.version pairConnect >> P.createDestination Nothing pairConnect
-            sessionIdConnect                                      <- P.createSessionWith Nothing privateDestinationConnect socketType pairConnect
+          phase2 sessionIdAccept publicDestinationAccept (sockConnect, _) = do
+            (privateDestinationConnect, publicDestinationConnect) <- P.version sockConnect >> P.createDestination Nothing sockConnect
+            sessionIdConnect                                      <- P.createSessionWith Nothing privateDestinationConnect socketType sockConnect
 
             finishedTestMVar <- newEmptyMVar
             connectSockMVar  <- newEmptyMVar
@@ -357,11 +355,11 @@ spec = do
 
             killThread threadId
 
-          phase1 pairAccept = do
+          phase1 (sockAccept, _) = do
             putStrLn "creating accept session"
-            (privateDestinationAccept, publicDestinationAccept) <- P.version pairAccept >> P.createDestination Nothing pairAccept
+            (privateDestinationAccept, publicDestinationAccept) <- P.version sockAccept >> P.createDestination Nothing sockAccept
 
-            sessionIdAccept <- P.createSessionWith Nothing privateDestinationAccept socketType pairAccept
+            sessionIdAccept <- P.createSessionWith Nothing privateDestinationAccept socketType sockAccept
             P.connect "127.0.0.1" "7656" (phase2 sessionIdAccept publicDestinationAccept)
 
       in P.connect "127.0.0.1" "7656" phase1
@@ -374,22 +372,22 @@ spec = do
       let socketTypes = [ S.DatagramRepliable
                         , S.DatagramAnonymous ]
 
-          createSink socketType sinkPair sinkDestination testFinished pairSink = do
+          createSink socketType sinkSock' sinkDestination' testFinished' (sockSink, _) = do
             putStrLn "creating sink session"
-            (privateDestinationSink, publicDestinationSink) <- P.version pairSink >> P.createDestination Nothing pairSink
-            _ <- P.createSessionWith Nothing privateDestinationSink socketType pairSink
+            (privateDestinationSink, publicDestinationSink) <- P.version sockSink >> P.createDestination Nothing sockSink
+            _ <- P.createSessionWith Nothing privateDestinationSink socketType sockSink
 
-            putMVar sinkDestination publicDestinationSink
-            putMVar sinkPair pairSink
+            putMVar sinkDestination' publicDestinationSink
+            putMVar sinkSock' sockSink
 
             -- Block until test is finished, so the sockets stay alive
-            finished <- readMVar testFinished
+            finished <- readMVar testFinished'
             finished `shouldBe` True
 
-          createSource socketType sourceSession testFinished pairSource = do
+          createSource socketType sourceSession testFinished (sockSource, _) = do
             putStrLn "creating source session"
-            (privateDestinationSource, _) <- P.version pairSource >> P.createDestination Nothing pairSource
-            sessionIdSource <- P.createSessionWith Nothing privateDestinationSource socketType pairSource
+            (privateDestinationSource, _) <- P.version sockSource >> P.createDestination Nothing sockSource
+            sessionIdSource <- P.createSessionWith Nothing privateDestinationSource socketType sockSource
 
             putMVar sourceSession sessionIdSource
 
@@ -404,11 +402,11 @@ spec = do
             sourceSessionId' <- newEmptyMVar
 
             -- Our 'sink' socket is the party that receives the datagram
-            sinkPair'        <- newEmptyMVar
+            sinkSock'        <- newEmptyMVar
             sinkDestination' <- newEmptyMVar
 
-            _ <- forkIO $ P.connect "127.0.0.1" "7656" (createSink   socketType sinkPair'   sinkDestination' testFinished')
-            _ <- forkIO $ P.connect "127.0.0.1" "7656" (createSource socketType sourceSessionId' testFinished')
+            _ <- forkIO $ P.connect "127.0.0.1" "7656" (createSink   socketType sinkSock' sinkDestination' testFinished')
+            _ <- forkIO $ P.connect "127.0.0.1" "7656" (createSource socketType           sourceSessionId' testFinished')
 
             -- First, we need our source socket and session id, and the destination
             -- where we should send the message to.
@@ -416,7 +414,7 @@ spec = do
             sourceSessionId <- takeMVar sourceSessionId'
 
             -- Now, lets' wait until the sink socket is ready to receive
-            sinkPair        <- takeMVar sinkPair'
+            sinkSock        <- takeMVar sinkSock'
 
             -- Put a message on top of our source socket
             P.sendDatagram sourceSessionId sinkDestination (BS8.pack "Hello, world!")
@@ -424,7 +422,7 @@ spec = do
             putStrLn "Now attempting to receive a datagram in the sink"
 
             -- Wait for a message to arrive on our sink socket
-            (msg, destination) <- P.receiveDatagram sinkPair
+            (msg, destination) <- P.receiveDatagram sinkSock
 
             msg `shouldBe` (BS8.pack "Hello, world!")
 
@@ -442,13 +440,13 @@ spec = do
       let bigMessage =
            BS.concat (replicate 3174 "lorem ipsum hello world foo bar baz")
 
-          createSink sinkDestination pairSink = do
-            (publicDestinationSink, _) <- P.version pairSink >> P.createDestination Nothing pairSink
+          createSink sinkDestination (sockSink, _) = do
+            (publicDestinationSink, _) <- P.version sockSink >> P.createDestination Nothing sockSink
             putMVar sinkDestination publicDestinationSink
 
-          createSource sourceSession pairSource = do
-            (privateDestinationSource, _) <- P.version pairSource >> P.createDestination Nothing pairSource
-            sessionIdSource <- P.createSessionWith Nothing privateDestinationSource S.DatagramRepliable pairSource
+          createSource sourceSession (sockSource, _) = do
+            (privateDestinationSource, _) <- P.version sockSource >> P.createDestination Nothing sockSource
+            sessionIdSource <- P.createSessionWith Nothing privateDestinationSource S.DatagramRepliable sockSource
 
             putMVar sourceSession sessionIdSource
 
