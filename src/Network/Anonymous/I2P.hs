@@ -1,13 +1,32 @@
 {-# LANGUAGE FlexibleContexts #-}
 
--- | Main interface to I2P
-module Network.Anonymous.I2P ( createDestination
-                             , withSession
-                             , withSession'
-                             , connectStream
-                             , serveDatagram
-                             , serveStream
-                             , sendDatagram) where
+-- | This module provides the main interface for establishing secure and
+--   anonymous connections with other hosts on the interface using the
+--   Invisible Internet Project (I2P). For more information about the I2P
+--   network, see: <https://www.geti2p.net/ geti2p.net>
+--
+module Network.Anonymous.I2P (
+  -- * Introduction to I2P
+  -- $i2p-introduction
+
+  -- * Client side
+  -- $i2p-client
+
+  -- * Server side
+  -- $i2p-server
+
+  -- ** Setting up the context
+    createDestination
+  , withSession
+  , withSession'
+
+  -- ** Virtual streams
+  , connectStream
+  , serveStream
+
+  -- ** Datagrams
+  , serveDatagram
+  , sendDatagram) where
 
 import           Control.Concurrent                      (forkIO)
 import           Control.Concurrent.MVar
@@ -22,6 +41,118 @@ import qualified Network.Anonymous.I2P.Protocol          as P
 import qualified Network.Anonymous.I2P.Types.Destination as D
 import qualified Network.Anonymous.I2P.Types.Session     as S
 import qualified Network.Anonymous.I2P.Types.Socket      as S
+
+--------------------------------------------------------------------------------
+-- $i2p-introduction
+--
+-- This module is an implementation of the SAMv3 protocol for I2P. I2P is an
+-- internet anonimization network, similar to Tor. Whereas Tor is intended for
+-- privately using the internet, I2P is more application oriented, and is intended
+-- for private communication between applications.
+--
+-- The general idea of the SAM interface to I2P is that you establish a master
+-- connection with the SAM bridge, and create new, short-lived connections with
+-- the SAM bridge for the communication with the individual peers.
+--
+-- I2P provides three different ways of communicating with other hosts:
+--
+--  * __Virtual Streams__: the closest thing to reliable TCP sockets that I2P
+--    brings, and allows you to start a server, accept connections and establish
+--    connections with remote servers.
+--
+--  * __Repliable Datagrams__: unreliable delivery of messages to a remote host,
+--    but adds a reply-to address to the message so the remote host can send a
+--    message back.
+--
+--  * __Anonymous Datagrams__: unreliable delivery of messages to a remote host,
+--    and the remote host has no way to find out who sent the message.
+--
+-- Different methods of communication have different performance characteristics,
+-- and an application developer should take these into careful consideration when
+-- developing an application.
+--
+--------------------------------------------------------------------------------
+-- $i2p-client
+--
+-- == Virtual Stream
+-- Establishing a 'S.VirtualStream' connection with a remote works as follows:
+--
+-- @
+--   main = 'withSession' 'S.VirtualStream' withinSession
+--
+--   where
+--     dest :: 'D.PublicDestination'
+--     dest = undefined
+--
+--     withinSession -> 'S.Context' -> IO ()
+--     withinSession ctx = connectStream ctx dest worker
+--
+--     worker (sock, addr) = do
+--       -- Now you may use sock to communicate with the remote; addr contains
+--       -- the address of the remote we are connected to, which on our case
+--       -- should match dest.
+--       return ()
+-- @
+--
+-- == Datagram
+-- Sending a 'S.DatagramRepliable' message to a remote:
+--
+-- @
+--   main = 'withSession' 'S.DatagramRepliable' withinSession
+--
+--   where
+--     dest :: 'D.PublicDestination'
+--     dest = undefined
+--
+--     withinSession -> 'S.Context' -> IO ()
+--     withinSession ctx = do
+--       sendDatagram ctx dest \"Hello, anonymous world!\"
+--
+--       -- SAM requires the master connection of a session to be alive longer
+--       -- than any opertions that occur on the session are. Since sending a
+--       -- datagram returns before the datagram might be actually handled by
+--       -- I2P, it is adviced to wait a little while before closing the session.
+--       threadDelay 1000000
+-- @
+--
+--------------------------------------------------------------------------------
+-- $i2p-server
+--
+-- == Virtual Stream
+-- Running a server that accepts 'S.VirtualStream' connections.
+--
+-- @
+--   main = 'withSession' 'S.VirtualStream' withinSession
+--
+--   where
+--     withinSession -> 'S.Context' -> IO ()
+--     withinSession ctx = serveStream ctx worker
+--
+--     worker (sock, addr) = do
+--       -- Now you may use sock to communicate with the remote; addr contains
+--       -- the address of the remote we are connected to, which we might want
+--       -- to store to send back messages asynchronously.
+--       return ()
+-- @
+--
+-- == Datagram
+-- Receiving a 'S.DatagramAnonymous' messages from remotes:
+--
+-- @
+--   main = 'withSession' 'S.DatagramAnonymous' withinSession
+--
+--   where
+--     withinSession -> 'S.Context' -> IO ()
+--     withinSession ctx =
+--       serveDatagram ctx worker
+--
+--     worker (sock, addr) = do
+--       -- Now you may use sock to communicate with the remote; addr is an
+--       -- instance of the 'Maybe' monad, and since we only accept anonymous
+--       -- messages, should always be 'Nothing'.
+--       return ()
+-- @
+--------------------------------------------------------------------------------
 
 -- | Create a new I2P destination endpoint.
 --
@@ -151,7 +282,13 @@ connectStream (S.Context _ _ sessionId _ _) remoteDestination callback =
 
   in P.connect "127.0.0.1" "7656" connectAddress
 
--- | Sends a datagram to a remote destination. Optionally sends a return address.
+-- | Sends a datagram to a remote destination.
+--
+--   __Warning__: This function returns before the actual datagram has arrived at
+--                and handled by the SAM bridge. If you close the session opened
+--                with 'withSession', a race condition will occur where the datagram
+--                will possibly arrive /after/ the session has been closed, and as
+--                such will never be delivered.
 sendDatagram :: ( MonadIO m
                 , MonadMask m)
              => S.Context           -- ^ Our context

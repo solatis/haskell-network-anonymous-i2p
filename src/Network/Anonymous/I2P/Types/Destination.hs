@@ -3,7 +3,10 @@ module Network.Anonymous.I2P.Types.Destination where
 
 import qualified Data.ByteString as BS
 
+-- | Interface for any destination
 class Destination a where
+  -- | Any destination should be convertable to a ByteString in order to
+  --   send it over a socket.
   asByteString :: a -> BS.ByteString
 
 -- | An I2P destination we can connect to.
@@ -18,7 +21,11 @@ class Acceptable  a where
 --   key of a destination, and should be given out to other people to connect
 --   to your host.
 data PublicDestination = PublicDestination BS.ByteString deriving (Eq, Show)
+
+-- | We can connect to a public destination
 instance Connectable PublicDestination
+
+-- | A public destination is a 'Destination' and can be converted to a ByteString.
 instance Destination PublicDestination where
   asByteString (PublicDestination bs) = bs
 
@@ -30,8 +37,14 @@ instance Destination PublicDestination where
 --   destination out to others, you are effectively giving them the ability
 --   to MITM you.
 data PrivateDestination = PrivateDestination BS.ByteString deriving (Eq, Show)
+
+-- | We can connect to a private destination
 instance Connectable PrivateDestination
+
+-- | We can accept connections at a private destination
 instance Acceptable  PrivateDestination
+
+-- | A private destination is a 'Destination' and can be converted to a ByteString.
 instance Destination PrivateDestination where
   asByteString (PrivateDestination bs) = bs
 

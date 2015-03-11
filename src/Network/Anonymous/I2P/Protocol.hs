@@ -3,6 +3,12 @@
 -- | Protocol description
 --
 -- Defines functions that handle the advancing of the SAMv3 protocol.
+--
+--   __Warning__: This function is used internally by 'Network.Anonymous.I2P'
+--                and using these functions directly is unsupported. The
+--                interface of these functions might change at any time without
+--                prior notice.
+--
 module Network.Anonymous.I2P.Protocol ( NST.connect
                                       , version
                                       , versionWithConstraint

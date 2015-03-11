@@ -1,5 +1,11 @@
 -- | Abstract syntax tree used by the 'Parser', including helper functions
 --   for traversing the tree.
+--
+--   __Warning__: This function is used internally by 'Network.Anonymous.I2P'
+--                and using these functions directly is unsupported. The
+--                interface of these functions might change at any time without
+--                prior notice.
+--
 
 module Network.Anonymous.I2P.Protocol.Parser.Ast where
 import qualified Data.Attoparsec.ByteString as Atto
