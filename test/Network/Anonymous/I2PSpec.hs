@@ -103,6 +103,8 @@ spec = do
             msg      <- readMVar msg'
             pubDest1 <- readMVar pubDest1'
 
+            putStrLn("got mvars: msg=" ++ show msg ++ ", pubDest1=" ++ show pubDest1)
+
             msg `shouldBe` "Hello, world!\n"
 
             case socketType of
