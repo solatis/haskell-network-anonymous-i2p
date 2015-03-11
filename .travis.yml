@@ -44,7 +44,7 @@ script:
  - hlint src --ignore="Parse error"
  - cabal configure --enable-tests --enable-benchmarks --enable-library-coverage -fdebug 
  - cabal build -j
- - travis_retry dist/built/test-suite/test-suite +RTS -xc
+ - travis_retry dist/build/test-suite/test-suite +RTS -xc
  - cabal check
  - cabal sdist
  
