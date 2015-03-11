@@ -116,10 +116,6 @@ spec = do
              S.DatagramAnonymous -> pubDest1 `shouldSatisfy` isNothing
              S.DatagramRepliable -> pubDest1 `shouldSatisfy` isJust
 
-
-            killThread threadId1
-            killThread threadId2
-
             return ()
 
       in mapM performTest socketTypes >> return ()
