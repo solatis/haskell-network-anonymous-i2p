@@ -11,6 +11,7 @@ before_install:
 
  - export PATH=$HOME/.cabal/bin:$PATH
  - travis_retry cabal update
+ - travis_retry cabal install cabal-install
 
 # This generates the initial configuration
  - sudo service i2p start
@@ -44,7 +45,7 @@ script:
  - hlint src --ignore="Parse error"
  - cabal configure --enable-tests --enable-benchmarks --enable-library-coverage -fdebug 
  - cabal build -j
- - travis_retry run-cabal-test --cabal-name=cabal --show-details=always
+ - travis_retry run-cabal-test --cabal-name=cabal --show-details=streaming
  - cabal check
  - cabal sdist
  
