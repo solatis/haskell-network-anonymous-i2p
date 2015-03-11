@@ -137,7 +137,7 @@ import qualified Network.Anonymous.I2P.Types.Socket      as S
 -- @
 --
 -- == Datagram
--- Receiving a 'S.DatagramAnonymous' messages from remotes:
+-- Receiving 'S.DatagramAnonymous' messages from remotes:
 --
 -- @
 --   main = 'withSession' 'S.DatagramAnonymous' withinSession
