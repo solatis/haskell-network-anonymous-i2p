@@ -79,6 +79,7 @@ spec = do
             putStrLn ("stored mvars")
 
           retrySendMessage ctx dest msg = do
+            putStrLn ("sending message: " ++ show msg)
             threadDelay 5000000
             sendDatagram ctx dest msg
 
@@ -88,10 +89,15 @@ spec = do
           performTest socketType = do
             (privDest0, pubDest0) <- createDestination Nothing
 
-            msg'      <- newEmptyMVar
-            pubDest1' <- newEmptyMVar
+            msg'          <- newEmptyMVar
+            sessionReady' <- newEmptyMVar
+            pubDest1'     <- newEmptyMVar
 
-            threadId1 <- forkIO $ withSession' socketType (privDest0, pubDest0) (\ctx -> serveDatagram ctx (receiveMessage  msg' pubDest1'))
+            threadId1 <- forkIO $ withSession' socketType (privDest0, pubDest0) (\ctx -> do
+                                                                                    _ <- putMVar sessionReady' True
+                                                                                    serveDatagram ctx (receiveMessage  msg' pubDest1'))
+
+            _         <- takeMVar sessionReady'
             threadId2 <- forkIO $ withSession socketType (\ctx -> retrySendMessage ctx pubDest0 "Hello, world!\n")
 
             msg      <- readMVar msg'

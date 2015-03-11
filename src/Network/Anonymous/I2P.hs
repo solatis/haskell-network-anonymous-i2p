@@ -73,7 +73,7 @@ withSession' :: ( MonadIO m
 withSession' socketType (privDest, pubDest) callback =
   let bindSession (sock, _) = do
         _         <- P.version sock
-        sessionId <- P.createSessionWith Nothing (privDest) socketType sock
+        sessionId <- P.createSessionWith Nothing privDest socketType sock
 
         callback (S.Context sock socketType sessionId privDest pubDest)
 
