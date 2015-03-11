@@ -56,9 +56,10 @@ import qualified Network.Anonymous.I2P.Types.Socket      as S
 --
 -- I2P provides three different ways of communicating with other hosts:
 --
---  * __Virtual Streams__: the closest thing to reliable TCP sockets that I2P
---    brings, and allows you to start a server, accept connections and establish
---    connections with remote servers.
+--  * __Virtual Streams__: similar to reliable TCP sockets, data is guaranteed to
+--    be delivered, and in order. You can accept virtual streams and connect to
+--    remote virtual streams, and use regular sockets to transmit the actual
+--    messages.
 --
 --  * __Repliable Datagrams__: unreliable delivery of messages to a remote host,
 --    but adds a reply-to address to the message so the remote host can send a

@@ -67,7 +67,7 @@ timeoutErrorType = Timeout
 unreachableErrorType :: I2PErrorType
 unreachableErrorType = Unreachable
 
--- | I2P error when communication with the SAM bridge fails
+-- | I2P error when a datagram message would be too long to transmit
 messageTooLongErrorType :: I2PErrorType
 messageTooLongErrorType = MessageTooLong
 

@@ -1,6 +1,6 @@
 name: network-anonymous-i2p
 category: Network
-version: 0.0.1
+version: 0.9.1
 description: Haskell API for I2P anonymous networking
 
 license: MIT
@@ -10,6 +10,7 @@ author: Leon Mergen
 maintainer: leon@solatis.com
 stability: experimental
 synopsis: Haskell API for I2P anonymous networking
+homepage: http://github.com/solatis/haskell-network-anonymous-i2p
 build-type: Simple
 data-files: LICENSE, README.md
 cabal-version: >= 1.10
