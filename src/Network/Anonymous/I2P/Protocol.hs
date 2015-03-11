@@ -55,8 +55,13 @@ expectResponse :: ( MonadIO m
                -> (BS.ByteString, BS.ByteString)
                -> m [Ast.Token]
 expectResponse sock output (first, second) = do
-    liftIO $ Network.sendAll sock output
+    liftIO $ D.log
+      ("sending to remote: " ++ show output)
+      Network.sendAll sock output
+
     res <- NA.parseOne sock (Atto.parse Parser.line)
+
+    liftIO $ putStrLn ("got response: " ++ show res)
 
     case res of
      (Ast.Token first' Nothing : Ast.Token second' Nothing : xs) -> if first == first' && second == second'
@@ -142,10 +147,7 @@ createDestination signature sock =
   in do
     res <- expectResponse sock createDestinationString ("DEST", "REPLY")
     case (Ast.value "PRIV" res, Ast.value "PUB" res)  of
-     (Just priv, Just pub) -> D.log
-                                ("created destination, priv = " ++ show priv ++ ", pub = " ++ show pub)
-                                return (D.PrivateDestination priv, D.PublicDestination pub)
-
+     (Just priv, Just pub) -> return (D.PrivateDestination priv, D.PublicDestination pub)
      _                     -> E.i2pError (E.mkI2PError E.protocolErrorType)
 
 -- | Create a session with default parameters provided.
