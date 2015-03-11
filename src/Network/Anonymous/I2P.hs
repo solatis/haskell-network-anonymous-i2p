@@ -85,7 +85,7 @@ import qualified Network.Anonymous.I2P.Types.Socket      as S
 --     dest :: 'D.PublicDestination'
 --     dest = undefined
 --
---     withinSession -> 'S.Context' -> IO ()
+--     withinSession :: 'S.Context' -> IO ()
 --     withinSession ctx = connectStream ctx dest worker
 --
 --     worker (sock, addr) = do
@@ -105,7 +105,7 @@ import qualified Network.Anonymous.I2P.Types.Socket      as S
 --     dest :: 'D.PublicDestination'
 --     dest = undefined
 --
---     withinSession -> 'S.Context' -> IO ()
+--     withinSession :: 'S.Context' -> IO ()
 --     withinSession ctx = do
 --       sendDatagram ctx dest \"Hello, anonymous world!\"
 --
@@ -126,7 +126,7 @@ import qualified Network.Anonymous.I2P.Types.Socket      as S
 --   main = 'withSession' 'S.VirtualStream' withinSession
 --
 --   where
---     withinSession -> 'S.Context' -> IO ()
+--     withinSession :: 'S.Context' -> IO ()
 --     withinSession ctx = serveStream ctx worker
 --
 --     worker (sock, addr) = do
@@ -143,7 +143,7 @@ import qualified Network.Anonymous.I2P.Types.Socket      as S
 --   main = 'withSession' 'S.DatagramAnonymous' withinSession
 --
 --   where
---     withinSession -> 'S.Context' -> IO ()
+--     withinSession :: 'S.Context' -> IO ()
 --     withinSession ctx =
 --       serveDatagram ctx worker
 --
