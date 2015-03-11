@@ -78,13 +78,10 @@ spec = do
             putMVar pubDest' pubDest
             putStrLn ("stored mvars")
 
-          retrySendMessage ctx dest msg = do
+          sendMessage ctx dest msg = do
+            threadDelay 30000000
             putStrLn ("sending message: " ++ show msg)
-            threadDelay 5000000
             sendDatagram ctx dest msg
-
-            -- Enter recursion
-            retrySendMessage ctx dest msg
 
           performTest socketType = do
             (privDest0, pubDest0) <- createDestination Nothing
@@ -92,13 +89,19 @@ spec = do
             msg'          <- newEmptyMVar
             sessionReady' <- newEmptyMVar
             pubDest1'     <- newEmptyMVar
+            finished'     <- newEmptyMVar
 
             threadId1 <- forkIO $ withSession' socketType (privDest0, pubDest0) (\ctx -> do
                                                                                     _ <- putMVar sessionReady' True
                                                                                     serveDatagram ctx (receiveMessage  msg' pubDest1'))
 
             _         <- takeMVar sessionReady'
-            threadId2 <- forkIO $ withSession socketType (\ctx -> retrySendMessage ctx pubDest0 "Hello, world!\n")
+            withSession socketType (\ctx -> do
+                                       sendMessage ctx pubDest0 "Hello, world!\n"
+
+                                       -- This blocks until the test is finished
+                                       _ <- readMVar finished'
+                                       return ())
 
             msg      <- readMVar msg'
             pubDest1 <- readMVar pubDest1'
@@ -111,8 +114,9 @@ spec = do
              S.DatagramAnonymous -> pubDest1 `shouldSatisfy` isNothing
              S.DatagramRepliable -> pubDest1 `shouldSatisfy` isJust
 
+            putMVar finished' True
+
             killThread threadId1
-            killThread threadId2
 
             return ()
 
