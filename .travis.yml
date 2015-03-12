@@ -1,4 +1,4 @@
-language: haskell
+language: c
 env:
  - CABALVER=1.22 GHCVER=7.6.3
  - CABALVER=1.22 GHCVER=7.8.4
@@ -23,11 +23,22 @@ before_install:
  - sudo cat /var/lib/i2p/i2p-config/clients.config
  - sudo service i2p start
 
-# Install hlint
+# Installing cabal and ghc
  - travis_retry cabal update
  - travis_retry sudo apt-get install cabal-install-$CABALVER ghc-$GHCVER # see note about happy/alex
+
+# Happy/alex hack for ghc > 7.8.1
+ - |
+   if [ $GHCVER = "head" ] || [ ${GHCVER%.*} = "7.8" ] || [ ${GHCVER%.*} = "7.10" ]; then
+     travis_retry sudo apt-get install happy-1.19.4 alex-3.1.3
+     export PATH=/opt/alex/3.1.3/bin:/opt/happy/1.19.4/bin:$PATH
+   else
+     travis_retry sudo apt-get install happy alex
+   fi
+
+# Install hlint
  - export PATH=$HOME/.cabal/bin:/opt/ghc/$GHCVER/bin:/opt/cabal/$CABALVER/bin:$PATH
- - travis_retry sudo apt-get -q -y install hlint
+ - cabal install hlint
  
 # Install hpc-coveralls
  - travis_retry cabal sandbox init
