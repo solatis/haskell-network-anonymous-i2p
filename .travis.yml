@@ -31,6 +31,7 @@ before_install:
 
 # Installing cabal and ghc
  - travis_retry sudo apt-get install cabal-install-$CABALVER ghc-$GHCVER # see note about happy/alex
+ - export PATH=$HOME/.cabal/bin:/opt/ghc/$GHCVER/bin:/opt/cabal/$CABALVER/bin:$PATH
  - travis_retry cabal update
  
 # Happy/alex hack for ghc > 7.8.1
@@ -43,7 +44,6 @@ before_install:
    fi
 
 # Install hlint
- - export PATH=$HOME/.cabal/bin:/opt/ghc/$GHCVER/bin:/opt/cabal/$CABALVER/bin:$PATH
  - cabal install hlint
  
 # Install hpc-coveralls
