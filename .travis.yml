@@ -30,9 +30,9 @@ before_install:
  - sudo service i2p start
 
 # Installing cabal and ghc
- - travis_retry cabal update
  - travis_retry sudo apt-get install cabal-install-$CABALVER ghc-$GHCVER # see note about happy/alex
-
+ - travis_retry cabal update
+ 
 # Happy/alex hack for ghc > 7.8.1
  - |
    if [ $GHCVER = "head" ] || [ ${GHCVER%.*} = "7.8" ] || [ ${GHCVER%.*} = "7.10" ]; then
