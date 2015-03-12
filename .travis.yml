@@ -11,9 +11,6 @@ before_install:
  - travis_retry sudo apt-get install i2p
  - sudo sed -i /etc/default/i2p -e 's/RUN_DAEMON="false"/RUN_DAEMON="true"/'
 
- - travis_retry cabal update
- - travis_retry sudo cabal install -g cabal-install
-
 # This generates the initial configuration
  - sudo service i2p start
  - sudo service i2p stop
@@ -26,6 +23,7 @@ before_install:
  - sudo service i2p start
 
 # Install hlint
+ - travis_retry cabal update
  - travis_retry sudo apt-get install cabal-install-$CABALVER ghc-$GHCVER # see note about happy/alex
  - export PATH=$HOME/.cabal/bin:/opt/ghc/$GHCVER/bin:/opt/cabal/$CABALVER/bin:$PATH
  - travis_retry sudo apt-get -q -y install hlint
