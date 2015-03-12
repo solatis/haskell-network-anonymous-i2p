@@ -61,9 +61,15 @@ expectResponse :: ( MonadIO m
                -> (BS.ByteString, BS.ByteString)
                -> m [Ast.Token]
 expectResponse sock output (first, second) = do
-  Network.sendAll sock output
+  liftIO $ D.log
+    ("sending to remote: " ++ show output)
+    Network.sendAll sock output
 
   res <- NA.parseOne sock (Atto.parse Parser.line)
+
+  D.log
+    ("received response: " ++ show res)
+    return ()
 
   case res of
    (Ast.Token first' Nothing : Ast.Token second' Nothing : xs) -> if first == first' && second == second'
