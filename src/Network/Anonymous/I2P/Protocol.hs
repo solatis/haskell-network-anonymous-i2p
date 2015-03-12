@@ -61,19 +61,15 @@ expectResponse :: ( MonadIO m
                -> (BS.ByteString, BS.ByteString)
                -> m [Ast.Token]
 expectResponse sock output (first, second) = do
-    liftIO $ D.log
-      ("sending to remote: " ++ show output)
-      Network.sendAll sock output
+  Network.sendAll sock output
 
-    res <- NA.parseOne sock (Atto.parse Parser.line)
+  res <- NA.parseOne sock (Atto.parse Parser.line)
 
-    liftIO $ putStrLn ("got response: " ++ show res)
-
-    case res of
-     (Ast.Token first' Nothing : Ast.Token second' Nothing : xs) -> if first == first' && second == second'
-                                                                    then return xs
-                                                                    else E.i2pError (E.mkI2PError E.protocolErrorType)
-     _                                                           -> E.i2pError (E.mkI2PError E.protocolErrorType)
+  case res of
+   (Ast.Token first' Nothing : Ast.Token second' Nothing : xs) -> if first == first' && second == second'
+                                                                  then return xs
+                                                                  else E.i2pError (E.mkI2PError E.protocolErrorType)
+   _                                                           -> E.i2pError (E.mkI2PError E.protocolErrorType)
 
 -- | Announces ourselves with SAM bridge and negotiates protocol version
 --
