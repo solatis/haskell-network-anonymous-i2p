@@ -417,7 +417,7 @@ spec = do
             sinkSock        <- takeMVar sinkSock'
 
             -- Put a message on top of our source socket
-            P.sendDatagram sourceSessionId sinkDestination (BS8.pack "Hello, world!")
+            P.sendDatagram ("127.0.0.1", "7655") sourceSessionId sinkDestination (BS8.pack "Hello, world!")
 
             putStrLn "Now attempting to receive a datagram in the sink"
 
@@ -466,7 +466,7 @@ spec = do
             sourceSessionId <- takeMVar sourceSessionId'
 
             -- Put a message on top of our source socket
-            P.sendDatagram sourceSessionId sinkDestination bigMessage `shouldThrow`  U.isI2PError E.messageTooLongErrorType
+            P.sendDatagram ("127.0.0.1", "7655") sourceSessionId sinkDestination bigMessage `shouldThrow`  U.isI2PError E.messageTooLongErrorType
 
             return ()
 

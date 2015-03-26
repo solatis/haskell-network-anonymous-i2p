@@ -41,6 +41,7 @@ library
   exposed-modules:     Network.Anonymous.I2P
                        Network.Anonymous.I2P.Error
                        Network.Anonymous.I2P.Types.Destination
+                       Network.Anonymous.I2P.Types.Sam
                        Network.Anonymous.I2P.Types.Session
                        Network.Anonymous.I2P.Types.Socket
                        Network.Anonymous.I2P.Protocol

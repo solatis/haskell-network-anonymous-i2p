@@ -21,16 +21,16 @@ spec = do
             putMVar pubDestValidate' dest
 
       in do
-        (privDest0, pubDest0) <- createDestination Nothing
-        (privDest1, pubDest1) <- createDestination Nothing
+        (privDest0, pubDest0) <- createDestination defaultEndPoint Nothing
+        (privDest1, pubDest1) <- createDestination defaultEndPoint Nothing
 
         pubDestValidate0' <- newEmptyMVar
         pubDestValidate1' <- newEmptyMVar
 
-        threadId <- forkIO $ withSession' S.VirtualStream (privDest0, pubDest0) (\ctx -> serveStream ctx (storeDestination pubDestValidate1'))
+        threadId <- forkIO $ withSession' defaultEndPoint S.VirtualStream (privDest0, pubDest0) (\ctx -> serveStream ctx (storeDestination pubDestValidate1'))
 
         threadDelay 30000000
-        withSession' S.VirtualStream (privDest1, pubDest1) (\ctx -> connectStream ctx pubDest0 (storeDestination pubDestValidate0'))
+        withSession' defaultEndPoint S.VirtualStream (privDest1, pubDest1) (\ctx -> connectStream ctx pubDest0 (storeDestination pubDestValidate0'))
 
         pubDestValidate0 <- takeMVar pubDestValidate0'
         pubDestValidate1 <- takeMVar pubDestValidate1'
@@ -53,14 +53,14 @@ spec = do
             putMVar response' buf
 
       in do
-        (privDest0, pubDest0) <- createDestination Nothing
+        (privDest0, pubDest0) <- createDestination defaultEndPoint Nothing
 
         response' <- newEmptyMVar
 
-        threadId <- forkIO $ withSession' S.VirtualStream (privDest0, pubDest0) (\ctx -> serveStream ctx sendResponse)
+        threadId <- forkIO $ withSession' defaultEndPoint S.VirtualStream (privDest0, pubDest0) (\ctx -> serveStream ctx sendResponse)
 
         threadDelay 30000000
-        withSession S.VirtualStream (\ctx -> connectStream ctx pubDest0 (readResponse response'))
+        withSession defaultEndPoint S.VirtualStream (\ctx -> connectStream ctx pubDest0 (readResponse response'))
 
         response <- takeMVar response'
         response `shouldBe` "Hello, world!"
@@ -84,19 +84,19 @@ spec = do
             sendDatagram ctx dest msg
 
           performTest socketType = do
-            (privDest0, pubDest0) <- createDestination Nothing
+            (privDest0, pubDest0) <- createDestination defaultEndPoint Nothing
 
             msg'          <- newEmptyMVar
             sessionReady' <- newEmptyMVar
             pubDest1'     <- newEmptyMVar
             finished'     <- newEmptyMVar
 
-            threadId1 <- forkIO $ withSession' socketType (privDest0, pubDest0) (\ctx -> do
+            threadId1 <- forkIO $ withSession' defaultEndPoint socketType (privDest0, pubDest0) (\ctx -> do
                                                                                     _ <- putMVar sessionReady' True
                                                                                     serveDatagram ctx (receiveMessage  msg' pubDest1'))
 
             _         <- takeMVar sessionReady'
-            threadId2 <- forkIO $ withSession socketType (\ctx -> do
+            threadId2 <- forkIO $ withSession defaultEndPoint socketType (\ctx -> do
                                                              sendMessage ctx pubDest0 "Hello, world!\n"
 
                                                              -- This blocks until the test is finished

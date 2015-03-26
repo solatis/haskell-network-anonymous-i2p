@@ -46,6 +46,7 @@ import qualified Network.Anonymous.I2P.Protocol.Parser     as Parser
 import qualified Network.Anonymous.I2P.Protocol.Parser.Ast as Ast
 import qualified Network.Anonymous.I2P.Types.Destination   as D
 import qualified Network.Anonymous.I2P.Types.Socket        as S
+import qualified Network.Anonymous.I2P.Types.Sam           as S
 
 
 -- | According to the I2P protocol, the first two tokens in a response are always
@@ -284,11 +285,12 @@ sendDatagram :: ( MonadIO m
                 , MonadMask m
                 , D.Connectable d
                 , D.Destination d)
-             => String                             -- ^ Our session id
+             => S.EndPoint                         -- ^ SAM UDP endpoint
+             -> String                             -- ^ Our session id
              -> d                                  -- ^ Destination we wish to send message to
              -> BS.ByteString                      -- ^ Message we wish to send
              -> m ()                               -- ^ Returning state
-sendDatagram sessionId destination message
+sendDatagram (udpHost, udpPort) sessionId destination message
   | BS.length message > maxLength = E.i2pError (E.mkI2PError E.messageTooLongErrorType)
   | otherwise =
       let sendString =
@@ -300,7 +302,7 @@ sendDatagram sessionId destination message
 
       in do
         -- Establish connection to UDP SAM service at port 7655
-        addrinfos <- liftIO $ Network.getAddrInfo Nothing (Just "127.0.0.1") (Just "7655")
+        addrinfos <- liftIO $ Network.getAddrInfo Nothing (Just udpHost) (Just udpPort)
         let serveraddr = head addrinfos
         sock <- liftIO $ Network.socket (Network.addrFamily serveraddr) Network.Datagram Network.defaultProtocol
         liftIO $ Network.connect sock (Network.addrAddress serveraddr)

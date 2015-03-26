@@ -16,7 +16,8 @@ module Network.Anonymous.I2P (
   -- $i2p-server
 
   -- ** Setting up the context
-    createDestination
+    defaultEndPoint
+  , createDestination
   , withSession
   , withSession'
 
@@ -41,6 +42,7 @@ import qualified Network.Anonymous.I2P.Protocol          as P
 import qualified Network.Anonymous.I2P.Types.Destination as D
 import qualified Network.Anonymous.I2P.Types.Session     as S
 import qualified Network.Anonymous.I2P.Types.Socket      as S
+import qualified Network.Anonymous.I2P.Types.Sam         as S
 
 --------------------------------------------------------------------------------
 -- $i2p-introduction
@@ -79,14 +81,15 @@ import qualified Network.Anonymous.I2P.Types.Socket      as S
 -- Establishing a 'S.VirtualStream' connection with a remote works as follows:
 --
 -- @
---   main = 'withSession' 'S.VirtualStream' withinSession
+--   main = 'withSession' 'defaultEndPoint' 'S.VirtualStream' withinSession
 --
 --   where
 --     dest :: 'D.PublicDestination'
 --     dest = undefined
 --
 --     withinSession :: 'S.Context' -> IO ()
---     withinSession ctx = connectStream ctx dest worker
+--     withinSession ctx =
+--       'connectStream' ctx dest worker
 --
 --     worker (sock, addr) = do
 --       -- Now you may use sock to communicate with the remote; addr contains
@@ -99,7 +102,7 @@ import qualified Network.Anonymous.I2P.Types.Socket      as S
 -- Sending a 'S.DatagramRepliable' message to a remote:
 --
 -- @
---   main = 'withSession' 'S.DatagramRepliable' withinSession
+--   main = 'withSession' 'defaultEndPoint' 'S.DatagramRepliable' withinSession
 --
 --   where
 --     dest :: 'D.PublicDestination'
@@ -107,7 +110,7 @@ import qualified Network.Anonymous.I2P.Types.Socket      as S
 --
 --     withinSession :: 'S.Context' -> IO ()
 --     withinSession ctx = do
---       sendDatagram ctx dest \"Hello, anonymous world!\"
+--       'sendDatagram' ctx dest \"Hello, anonymous world!\"
 --
 --       -- SAM requires the master connection of a session to be alive longer
 --       -- than any opertions that occur on the session are. Since sending a
@@ -123,11 +126,12 @@ import qualified Network.Anonymous.I2P.Types.Socket      as S
 -- Running a server that accepts 'S.VirtualStream' connections.
 --
 -- @
---   main = 'withSession' 'S.VirtualStream' withinSession
+--   main = 'withSession' 'defaultEndPoint' 'S.VirtualStream' withinSession
 --
 --   where
 --     withinSession :: 'S.Context' -> IO ()
---     withinSession ctx = serveStream ctx worker
+--     withinSession ctx =
+--       'serveStream' ctx worker
 --
 --     worker (sock, addr) = do
 --       -- Now you may use sock to communicate with the remote; addr contains
@@ -140,12 +144,12 @@ import qualified Network.Anonymous.I2P.Types.Socket      as S
 -- Receiving 'S.DatagramAnonymous' messages from remotes:
 --
 -- @
---   main = 'withSession' 'S.DatagramAnonymous' withinSession
+--   main = 'withSession' 'defaultEndPoint' 'S.DatagramAnonymous' withinSession
 --
 --   where
 --     withinSession :: 'S.Context' -> IO ()
 --     withinSession ctx =
---       serveDatagram ctx worker
+--       'serveDatagram' ctx worker
 --
 --     worker (sock, addr) = do
 --       -- Now you may use sock to communicate with the remote; addr is an
@@ -154,6 +158,10 @@ import qualified Network.Anonymous.I2P.Types.Socket      as S
 --       return ()
 -- @
 --------------------------------------------------------------------------------
+
+-- | The default host/port SAM uses
+defaultEndPoint :: S.EndPoints
+defaultEndPoint = S.EndPoints ("127.0.0.1", "7656") ("127.0.0.1", "7655")
 
 -- | Create a new I2P destination endpoint.
 --
@@ -169,13 +177,13 @@ import qualified Network.Anonymous.I2P.Types.Socket      as S
 --                the address other people can connect to.
 createDestination :: ( MonadIO m
                      , MonadMask m)
-                  => Maybe D.SignatureType                         -- ^ Algorithm to use for signature encryption. As per I2P spec defaults to DSA_SHA1.
+                  => S.EndPoints                                   -- ^ Our SAM bridge endpoints
+                  -> Maybe D.SignatureType                         -- ^ Algorithm to use for signature encryption. As per I2P spec defaults to DSA_SHA1.
                   -> m (D.PrivateDestination, D.PublicDestination) -- ^ The private and public destinations.
-createDestination signatureType =
-  P.connect "127.0.0.1" "7656" (\(sock, _) -> do
-                                   _ <- P.version sock
-                                   P.createDestination signatureType sock)
-
+createDestination (S.EndPoints (tcpHost, tcpPort) _) signatureType =
+  P.connect tcpHost tcpPort (\(sock, _) -> do
+                                  _ <- P.version sock
+                                  P.createDestination signatureType sock)
 
 -- | Starts a new I2P session. A connection with the SAM bridge will be
 --   established, and a 'S.Context' object will be created and passed to the
@@ -185,12 +193,13 @@ createDestination signatureType =
 --   properly closed.
 withSession :: ( MonadIO m
                , MonadMask m)
-            => S.SocketType       -- ^ The type of socket we will be using.
+            => S.EndPoints        -- ^ Our SAM bridge endpoints
+            -> S.SocketType       -- ^ The type of socket we will be using.
             -> (S.Context -> m a) -- ^ The computation to run
             -> m a
-withSession socketType callback = do
-  destPair <- createDestination Nothing
-  withSession' socketType destPair callback
+withSession sam socketType callback = do
+  destPair <- createDestination sam Nothing
+  withSession' sam socketType destPair callback
 
 -- | Alternative implementation of 'withSession' that explicitly accepts a
 --   'D.Destination' pair to use to set up the session. This can be useful
@@ -198,18 +207,19 @@ withSession socketType callback = do
 --   endpoint.
 withSession' :: ( MonadIO m
                 , MonadMask m)
-             => S.SocketType                                -- ^ The type of socket we will be using.
+             => S.EndPoints                                 -- ^ Our SAM bridge endpoints
+             -> S.SocketType                                -- ^ The type of socket we will be using.
              -> (D.PrivateDestination, D.PublicDestination) -- ^ Destination to use
              -> (S.Context -> m a)                          -- ^ The computation to run
              -> m a
-withSession' socketType (privDest, pubDest) callback =
+withSession' sam socketType (privDest, pubDest) callback =
   let bindSession (sock, _) = do
         _         <- P.version sock
         sessionId <- P.createSessionWith Nothing privDest socketType sock
 
-        callback (S.Context sock socketType sessionId privDest pubDest)
+        callback (S.Context sam sock socketType sessionId privDest pubDest)
 
-  in P.connect "127.0.0.1" "7656" bindSession
+  in P.connect (fst (S.tcp sam)) (snd (S.tcp sam)) bindSession
 
 -- | Starts a server to accept 'S.VirtualStream' connections from other hosts
 --   and handles them concurrently in different threads. Any acquired resources
@@ -219,7 +229,7 @@ serveStream :: ( MonadIO m
             => S.Context
             -> ((Network.Socket, D.PublicDestination) -> IO ())
             -> m ()
-serveStream (S.Context _ _ sessionId _ _) callback =
+serveStream (S.Context (S.EndPoints (tcpHost, tcpPort) _) _ _ sessionId _ _) callback =
   let acceptNext accepted' (sock, _) = do
         _            <- P.version sock
         (incomingSock, incomingDest) <- P.acceptStream sessionId sock
@@ -228,7 +238,7 @@ serveStream (S.Context _ _ sessionId _ _) callback =
 
       acceptFork = liftIO $ do
           accepted' <- newEmptyMVar
-          _ <- forkIO $ P.connect "127.0.0.1" "7656" (acceptNext accepted')
+          _ <- forkIO $ P.connect tcpHost tcpPort (acceptNext accepted')
 
           -- This blocks until an actual connection is accepted, so we ensure there
           -- is always just one thread waiting for a new connection.
@@ -245,7 +255,7 @@ serveDatagram :: ( MonadIO m
               => S.Context
               -> ((BS.ByteString, Maybe D.PublicDestination) -> IO ())
               -> m ()
-serveDatagram (S.Context sock _ _ _ _) callback =
+serveDatagram (S.Context _ sock _ _ _ _) callback =
   let receiveNext received' = do
         res  <- P.receiveDatagram sock
         putMVar received' True
@@ -271,7 +281,7 @@ connectStream :: ( MonadIO m
               -> D.PublicDestination                              -- ^ Destination to connect to.
               -> ((Network.Socket, D.PublicDestination) -> IO ()) -- ^ Computation to run once connection has been established.
               -> m ()
-connectStream (S.Context _ _ sessionId _ _) remoteDestination callback =
+connectStream (S.Context (S.EndPoints (tcpHost, tcpPort) _) _ _ sessionId _ _) remoteDestination callback =
   let connectAddress (sock, _) = do
         -- Connect to the remote destination within our session.
         _         <- P.version sock
@@ -281,7 +291,7 @@ connectStream (S.Context _ _ sessionId _ _) remoteDestination callback =
         -- the 'localDestination' and the 'remoteDestination'
         liftIO $ callback (sock, remoteDestination)
 
-  in P.connect "127.0.0.1" "7656" connectAddress
+  in P.connect tcpHost tcpPort connectAddress
 
 -- | Sends a datagram to a remote destination.
 --
@@ -296,4 +306,4 @@ sendDatagram :: ( MonadIO m
              -> D.PublicDestination -- ^ Destination to send message to
              -> BS.ByteString       -- ^ The message to send
              -> m ()
-sendDatagram (S.Context _ _ sessionId _ _) = P.sendDatagram sessionId
+sendDatagram (S.Context (S.EndPoints _ udp) _ _ sessionId _ _) = P.sendDatagram udp sessionId
