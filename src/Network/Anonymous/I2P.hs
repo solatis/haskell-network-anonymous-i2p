@@ -219,7 +219,7 @@ withSession' sam socketType (privDest, pubDest) callback =
 
         callback (S.Context sam sock socketType sessionId privDest pubDest)
 
-  in P.connect (fst (S.tcp sam)) (snd (S.tcp sam)) bindSession
+  in uncurry P.connect (S.tcp sam) bindSession
 
 -- | Starts a server to accept 'S.VirtualStream' connections from other hosts
 --   and handles them concurrently in different threads. Any acquired resources
