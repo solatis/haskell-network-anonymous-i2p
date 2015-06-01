@@ -2,36 +2,35 @@
 
 module Network.Anonymous.I2P.ProtocolSpec where
 
-import Control.Concurrent.MVar
 import           Control.Concurrent                      (ThreadId, forkIO,
                                                           killThread,
                                                           threadDelay)
+import           Control.Concurrent.MVar
 import           Control.Monad.Catch
 import           Control.Monad.IO.Class
+import qualified Data.ByteString.Base64                  as BS64
 
 import qualified Network.Simple.TCP                      as NS (accept, listen,
                                                                 send)
 import qualified Network.Socket                          as NS (Socket)
-import qualified Network.Socket.ByteString               as NSB (sendAll, recv)
+import qualified Network.Socket.ByteString               as NSB (recv, sendAll)
 
 import qualified Network.Anonymous.I2P.Error             as E
-import qualified Network.Anonymous.I2P.Protocol as P     (connect,
-                                                          createDestination,
-                                                          createSession,
-                                                          createSessionWith,
-                                                          version,
-                                                          versionWithConstraint,
-                                                          acceptStream,
-                                                          connectStream,
-                                                          sendDatagram,
-                                                          receiveDatagram)
+import qualified Network.Anonymous.I2P.Protocol          as P (acceptStream,
+                                                               connect,
+                                                               connectStream, createDestination,
+                                                               createSession, createSessionWith,
+                                                               receiveDatagram,
+                                                               sendDatagram,
+                                                               version, versionWithConstraint)
 import qualified Network.Anonymous.I2P.Types.Destination as D
 import qualified Network.Anonymous.I2P.Types.Socket      as S
 import qualified Network.Anonymous.I2P.Util              as U
 
 import qualified Data.ByteString                         as BS
 import qualified Data.ByteString.Char8                   as BS8
-import           Data.Maybe                              (fromJust, isJust, isNothing)
+import           Data.Maybe                              (fromJust, isJust,
+                                                          isNothing)
 import qualified Data.UUID                               as Uuid
 import qualified Data.UUID.Util                          as Uuid
 import qualified Data.UUID.V4                            as Uuid
@@ -121,6 +120,9 @@ spec = do
 
           performTest signatureType = do
             (priv, pub) <- P.connect "127.0.0.1" "7656" (createSession signatureType)
+            putStrLn ("pub = " ++ show pub ++ ", length = " ++ show (BS.length pub))
+
+
 
             -- Validate that our private signature starts with our public sig.
             -- Note that we strip the last 2 bytes, since they might not match
